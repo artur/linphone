@@ -14,14 +14,14 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include "linphonecore.h"
+#include "linphone/core.h"
 
 extern SipSetup linphone_sip_login;
 static SipSetup *all_sip_setups[]={
@@ -29,10 +29,10 @@ static SipSetup *all_sip_setups[]={
 	NULL
 };
 
-static MSList *registered_sip_setups=NULL;
+static bctbx_list_t *registered_sip_setups=NULL;
 
 void sip_setup_register(SipSetup *ss){
-	registered_sip_setups=ms_list_append(registered_sip_setups,ss);
+	registered_sip_setups=bctbx_list_append(registered_sip_setups,ss);
 }
 
 void sip_setup_register_all(MSFactory *factory){
@@ -45,12 +45,12 @@ void sip_setup_register_all(MSFactory *factory){
 	}
 }
 
-const MSList * linphone_core_get_sip_setups(LinphoneCore *lc){
+const bctbx_list_t * linphone_core_get_sip_setups(LinphoneCore *lc){
 	return registered_sip_setups;
 }
 
 SipSetup *sip_setup_lookup(const char *type_name){
-	MSList *elem;
+	bctbx_list_t *elem;
 	for(elem=registered_sip_setups;elem!=NULL;elem=elem->next){
 		SipSetup *ss=(SipSetup*)elem->data;
 		if ( strcasecmp(ss->name,type_name)==0){
@@ -69,7 +69,7 @@ SipSetup *sip_setup_lookup(const char *type_name){
 }
 
 void sip_setup_unregister_all(void){
-	MSList *elem;
+	bctbx_list_t *elem;
 	for(elem=registered_sip_setups;elem!=NULL;elem=elem->next){
 		SipSetup *ss=(SipSetup*)elem->data;
 		if (ss->initialized){
@@ -77,7 +77,7 @@ void sip_setup_unregister_all(void){
 			ss->initialized=FALSE;
 		}
 	}
-	registered_sip_setups = ms_list_free(registered_sip_setups);
+	registered_sip_setups = bctbx_list_free(registered_sip_setups);
 }
 
 void buddy_lookup_request_set_key(BuddyLookupRequest *req, const char *key){
@@ -95,8 +95,8 @@ void buddy_lookup_request_set_max_results(BuddyLookupRequest *req, int ncount){
 void buddy_lookup_request_free(BuddyLookupRequest *req){
 	if (req->key) ms_free(req->key);
 	if (req->results){
-		ms_list_for_each(req->results,(void (*)(void*))buddy_info_free);
-		ms_list_free(req->results);
+		bctbx_list_for_each(req->results,(void (*)(void*))buddy_info_free);
+		bctbx_list_free(req->results);
 	}
 	ms_free(req);
 }

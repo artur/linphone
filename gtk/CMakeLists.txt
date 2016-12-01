@@ -16,7 +16,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 ############################################################################
 
@@ -94,7 +94,8 @@ else()
 endif()
 set_target_properties(linphone-gtk PROPERTIES OUTPUT_NAME linphone LINKER_LANGUAGE CXX)
 target_include_directories(linphone-gtk PUBLIC ${GTK2_INCLUDE_DIRS} ${INTL_INCLUDE_DIRS})
-target_link_libraries(linphone-gtk linphone ${GTK2_LIBRARIES})
+target_link_libraries(linphone-gtk ${LINPHONE_LIBS_FOR_TOOLS} ${GTK2_LIBRARIES} ${BCTOOLBOX_CORE_LIBRARIES} ${ORTP_LIBRARIES} ${MEDIASTREAMER2_LIBRARIES})
+set_target_properties(linphone-gtk PROPERTIES LINK_FLAGS "${LINPHONE_LDFLAGS}")
 if(INTL_FOUND)
 	target_link_libraries(linphone-gtk ${INTL_LIBRARIES})
 endif()

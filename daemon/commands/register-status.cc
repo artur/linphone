@@ -1,3 +1,22 @@
+/*
+register-status.cc
+Copyright (C) 2016 Belledonne Communications, Grenoble, France 
+
+This library is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or (at
+your option) any later version.
+
+This library is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this library; if not, write to the Free Software Foundation,
+Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+*/
+
 #include "register-status.h"
 
 using namespace std;
@@ -24,11 +43,11 @@ void RegisterStatusResponse::append(int id, const LinphoneProxyConfig* cfg) {
 	}
 	ost << "Id: " << id << "\n";
 	ost << "State: " << linphone_registration_state_to_string(linphone_proxy_config_get_state(cfg)) << "\n";
-	setBody(ost.str().c_str());
+	setBody(ost.str());
 }
 
 RegisterStatusCommand::RegisterStatusCommand() :
-		DaemonCommand("register-status", "register-status <register_id|ALL>", "Return status of a registration or of all registrations.") {
+		DaemonCommand("register-status", "register-status <register_id>|ALL", "Return status of a registration or of all registrations.") {
 	addExample(new DaemonCommandExample("register-status 1",
 						"Status: Ok\n\n"
 						"Id: 1\n"
@@ -44,7 +63,7 @@ RegisterStatusCommand::RegisterStatusCommand() :
 						"Reason: No register with such id."));
 }
 
-void RegisterStatusCommand::exec(Daemon *app, const char *args) {
+void RegisterStatusCommand::exec(Daemon *app, const string& args) {
 	LinphoneProxyConfig *cfg = NULL;
 	string param;
 	int pid;

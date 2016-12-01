@@ -20,7 +20,7 @@
 	#define _XOPEN_SOURCE 700 // To have definition of strptime, snprintf and getline
 #endif
 #include <time.h>
-#include "linphonecore.h"
+#include "linphone/core.h"
 #include "private.h"
 #include "liblinphone_tester.h"
 
@@ -32,7 +32,7 @@
 /*getline is POSIX 2008, not available on many systems.*/
 #if defined(ANDROID) || defined(_WIN32) || defined(__QNX__)
 /* This code is public domain -- Will Hartung 4/9/09 */
-static size_t getline(char **lineptr, size_t *n, FILE *stream) {
+static ssize_t getline(char **lineptr, size_t *n, FILE *stream) {
 	char *bufptr = NULL;
 	char *p = bufptr;
 	size_t size;
@@ -84,7 +84,7 @@ static size_t getline(char **lineptr, size_t *n, FILE *stream) {
 	*lineptr = bufptr;
 	*n = size;
 
-	return p - bufptr - 1;
+	return (ssize_t)(p - bufptr) - 1;
 }
 #endif
 
@@ -215,7 +215,6 @@ static time_t check_file(LinphoneCoreManager* mgr)  {
 
 
 		timediff = labs((long int)log_time - (long int)cur_time);
-		(void)timediff;
 #ifndef _WIN32
 		BC_ASSERT_LOWER(timediff, 1, unsigned, "%u");
 		if( !(timediff <= 1) ){
@@ -230,6 +229,7 @@ static time_t check_file(LinphoneCoreManager* mgr)  {
 			);
 		}
 #else
+		(void)timediff;
 		ms_warning("strptime() not available for this platform, test is incomplete.");
 #endif
 	}

@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #ifdef HAVE_CONFIG_H
@@ -24,7 +24,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #if __clang__ || ((__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || __GNUC__ > 4)
 #pragma GCC diagnostic push
 #endif
+#ifndef _MSC_VER
 #pragma GCC diagnostic ignored "-Wstrict-prototypes"
+#endif
 
 #include <gtk/gtk.h>
 
@@ -36,9 +38,9 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // alloca is already defined by gtk
 #undef alloca
 #endif
-#include "linphonecore.h"
+#include "linphone/core.h"
 
-#include "ldap/ldapprovider.h"
+#include "linphone/ldapprovider.h"
 
 #ifdef ENABLE_NLS
 
@@ -362,10 +364,16 @@ LINPHONE_PUBLIC void linphone_gtk_reload_sound_devices(void);
 LINPHONE_PUBLIC void linphone_gtk_reload_video_devices(void);
 LINPHONE_PUBLIC bool_t linphone_gtk_is_friend(LinphoneCore *lc, const char *contact);
 LINPHONE_PUBLIC gboolean linphone_gtk_auto_answer_enabled(void);
+LINPHONE_PUBLIC void linphone_gtk_auto_answer_delay_changed(GtkSpinButton *spinbutton, gpointer user_data);
 LINPHONE_PUBLIC void linphone_gtk_update_status_bar_icons(void);
 LINPHONE_PUBLIC void linphone_gtk_enable_auto_answer(GtkToggleButton *checkbox, gpointer user_data);
+
+LINPHONE_PUBLIC void linphone_gtk_import_contacts(void);
+LINPHONE_PUBLIC void linphone_gtk_export_contacts(void);
 
 LINPHONE_PUBLIC void linphone_gtk_mark_chat_read(LinphoneChatRoom *cr);
 #ifdef __APPLE__
 LINPHONE_PUBLIC void linphone_gtk_update_badge_count();
 #endif
+
+LINPHONE_PUBLIC gboolean linphone_gtk_on_key_press(GtkWidget *widget, GdkEvent *event, gpointer user_data);

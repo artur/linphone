@@ -17,14 +17,15 @@
 */
 
 
-#include "linphonecore.h"
+#include "linphone/core.h"
 #include "liblinphone_tester.h"
-#include "lpconfig.h"
+#include "linphone/lpconfig.h"
 #include "private.h"
 
 static void linphone_version_test(void){
 	const char *version=linphone_core_get_version();
 	/*make sure the git version is always included in the version number*/
+	BC_ASSERT_PTR_NOT_NULL(version);
 	BC_ASSERT_PTR_NULL(strstr(version,"unknown"));
 }
 
@@ -186,6 +187,12 @@ static void linphone_lpconfig_from_xml_zerolen_value(void){
 
 	LinphoneCoreManager* mgr = linphone_core_manager_new2("empty_rc",FALSE);
 
+	/* BUG
+	 * This test makes a provisionning by xml outside of the Configuring state of the LinphoneCore.
+	 * It is leaking memory because the config is litterally erased and rewritten by the invocation
+	 * of the private function linphone_remote_provisioning_load_file .
+	 */ 
+	
 	BC_ASSERT_EQUAL(linphone_remote_provisioning_load_file(mgr->lc, xml_path), 0, int, "%d");
 
 	conf = mgr->lc->config;
@@ -330,6 +337,52 @@ end:
 	linphone_core_manager_destroy(mgr);
 }
 
+/*this test checks default codec list, assuming VP8 and H264 are both supported.
+ * - with an empty config, the order must be as expected: VP8 first, H264 second.
+ * - with a config that references only H264, VP8 must be added automatically as first codec.
+ * - with a config that references only VP8, H264 must be added in second position.
+**/
+static void codec_setup(void){
+	LinphoneCoreManager *mgr = linphone_core_manager_new2("empty_rc", FALSE);
+	PayloadType *vp8, *h264;
+	const bctbx_list_t *codecs;
+	if ((vp8 = linphone_core_find_payload_type(mgr->lc, "VP8", 90000, -1)) == NULL ||
+		(h264 = linphone_core_find_payload_type(mgr->lc, "H264", 90000, -1)) == NULL){
+		linphone_core_manager_destroy(mgr);
+		ms_error("H264 or VP8 not available, test skipped.");
+		BC_PASS("H264 or VP8 not available, test skipped.");
+		return;
+	}
+	codecs = linphone_core_get_video_codecs(mgr->lc);
+	BC_ASSERT_TRUE(bctbx_list_size(codecs)>=2);
+	BC_ASSERT_TRUE(codecs->data == vp8);
+	BC_ASSERT_TRUE(codecs->next->data == h264);
+	linphone_core_manager_destroy(mgr);
+	
+	mgr = linphone_core_manager_new2("marie_h264_rc", FALSE);
+	vp8 = linphone_core_find_payload_type(mgr->lc, "VP8", 90000, -1);
+	h264 = linphone_core_find_payload_type(mgr->lc, "H264", 90000, -1);
+	codecs = linphone_core_get_video_codecs(mgr->lc);
+	BC_ASSERT_TRUE(bctbx_list_size(codecs)>=2);
+	BC_ASSERT_PTR_NOT_NULL(vp8);
+	BC_ASSERT_PTR_NOT_NULL(h264);
+	BC_ASSERT_TRUE(codecs->data == vp8);
+	BC_ASSERT_TRUE(codecs->next->data == h264);
+	linphone_core_manager_destroy(mgr);
+	
+	mgr = linphone_core_manager_new2("marie_rc", FALSE);
+	vp8 = linphone_core_find_payload_type(mgr->lc, "VP8", 90000, -1);
+	h264 = linphone_core_find_payload_type(mgr->lc, "H264", 90000, -1);
+	codecs = linphone_core_get_video_codecs(mgr->lc);
+	BC_ASSERT_TRUE(bctbx_list_size(codecs)>=2);
+	BC_ASSERT_PTR_NOT_NULL(vp8);
+	BC_ASSERT_PTR_NOT_NULL(h264);
+	BC_ASSERT_TRUE(codecs->data == vp8);
+	BC_ASSERT_TRUE(codecs->next->data == h264);
+	linphone_core_manager_destroy(mgr);
+	
+}
+
 test_t setup_tests[] = {
 	TEST_NO_TAG("Version check", linphone_version_test),
 	TEST_NO_TAG("Linphone Address", linphone_address_test),
@@ -341,10 +394,11 @@ test_t setup_tests[] = {
 	TEST_NO_TAG("LPConfig from buffer", linphone_lpconfig_from_buffer),
 	TEST_NO_TAG("LPConfig zero_len value from buffer", linphone_lpconfig_from_buffer_zerolen_value),
 	TEST_NO_TAG("LPConfig zero_len value from file", linphone_lpconfig_from_file_zerolen_value),
-	TEST_NO_TAG("LPConfig zero_len value from XML", linphone_lpconfig_from_xml_zerolen_value),
+	TEST_ONE_TAG("LPConfig zero_len value from XML", linphone_lpconfig_from_xml_zerolen_value, "LeaksMemory"),
 	TEST_NO_TAG("Chat room", chat_room_test),
 	TEST_NO_TAG("Devices reload", devices_reload_test),
-	TEST_NO_TAG("Codec usability", codec_usability_test)
+	TEST_NO_TAG("Codec usability", codec_usability_test),
+	TEST_NO_TAG("Codec setup", codec_setup)
 };
 
 test_suite_t setup_test_suite = {"Setup", NULL, NULL, liblinphone_tester_before_each, liblinphone_tester_after_each,

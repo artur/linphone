@@ -2,15 +2,16 @@
 
 AM_CPPFLAGS=\
 	-I$(top_srcdir) \
+	-I$(top_srcdir)/include \
 	-I$(top_srcdir)/coreapi
 
 COMMON_CFLAGS=\
-	-DIN_LINPHONE \
 	$(ORTP_CFLAGS) \
 	$(MEDIASTREAMER_CFLAGS) \
 	$(STRICT_OPTIONS) \
 	$(STRICT_OPTIONS_CC) \
-	$(LIBXML2_CFLAGS)
+	$(MEDIASTREAMER_LIBS) \
+	$(BCTOOLBOX_LIBS)
 
 #-fpermissive to workaround a g++ bug on macos 32bit SDK.
 AM_CXXFLAGS=$(LIBXML2_CFLAGS) -fpermissive $(STRICT_OPTIONS) $(STRICT_OPTIONS_CXX)

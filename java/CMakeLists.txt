@@ -16,7 +16,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 ############################################################################
 
@@ -24,28 +24,35 @@ if(ANDROID)
 	find_package(Java REQUIRED COMPONENTS Development)
 
 	set(JNI_CLASSES
+		"org.linphone.core.ErrorInfoImpl"
 		"org.linphone.core.LinphoneAddressImpl"
 		"org.linphone.core.LinphoneAuthInfoImpl"
+		"org.linphone.core.LinphoneBufferImpl"
 		"org.linphone.core.LinphoneCallImpl"
 		"org.linphone.core.LinphoneCallLogImpl"
 		"org.linphone.core.LinphoneCallParamsImpl"
 		"org.linphone.core.LinphoneCallStatsImpl"
 		"org.linphone.core.LinphoneChatMessageImpl"
 		"org.linphone.core.LinphoneChatRoomImpl"
+		"org.linphone.core.LinphoneConferenceImpl"
+		"org.linphone.core.LinphoneConferenceParamsImpl"
+		"org.linphone.core.LinphoneContentImpl"
 		"org.linphone.core.LinphoneCoreFactoryImpl"
 		"org.linphone.core.LinphoneCoreImpl"
-		"org.linphone.core.LinphoneFriendImpl"
-		"org.linphone.core.LinphoneProxyConfigImpl"
-		"org.linphone.core.PayloadTypeImpl"
-		"org.linphone.core.LpConfigImpl"
-		"org.linphone.core.LinphoneInfoMessageImpl"
 		"org.linphone.core.LinphoneEventImpl"
+		"org.linphone.core.LinphoneFriendImpl"
+		"org.linphone.core.LinphoneFriendListImpl"
+		"org.linphone.core.LinphoneInfoMessageImpl"
+		"org.linphone.core.LinphoneNatPolicyImpl"
+		"org.linphone.core.LinphonePlayerImpl"
+		"org.linphone.core.LinphoneProxyConfigImpl"
+		"org.linphone.core.LpConfigImpl"
+		"org.linphone.core.PayloadTypeImpl"
 		"org.linphone.core.PresenceActivityImpl"
 		"org.linphone.core.PresenceModelImpl"
 		"org.linphone.core.PresenceNoteImpl"
 		"org.linphone.core.PresencePersonImpl"
 		"org.linphone.core.PresenceServiceImpl"
-		"org.linphone.core.ErrorInfoImpl"
 		"org.linphone.core.TunnelConfigImpl"
 	)
 

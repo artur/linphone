@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package org.linphone.core;
 
@@ -33,6 +33,7 @@ class LinphoneFriendImpl implements LinphoneFriend, Serializable {
 	private native boolean isPresenceReceived(long nativePtr);
 	private native int getStatus(long nativePtr);
 	private native Object getPresenceModel(long nativePtr);
+	private native Object getPresenceModelForUri(long nativePtr, String uri);
 	private native void setPresenceModel(long nativePtr, long presencePtr);
 	private native void edit(long nativePtr);
 	private native void done(long nativePtr);
@@ -92,6 +93,9 @@ class LinphoneFriendImpl implements LinphoneFriend, Serializable {
 	public PresenceModel getPresenceModel() {
 		return (PresenceModel)getPresenceModel(nativePtr);
 	}
+	public PresenceModel getPresenceModelForUri(String uri) {
+		return (PresenceModel)getPresenceModelForUri(nativePtr, uri);
+	}
 	public void setPresenceModel(PresenceModel presenceModel) {
 		setPresenceModel(nativePtr, ((PresenceModelImpl)presenceModel).getNativePtr());
 	}
@@ -140,6 +144,28 @@ class LinphoneFriendImpl implements LinphoneFriend, Serializable {
 	@Override
 	public String getName() {
 		return getName(nativePtr);
+	}
+	
+	private native void setFamilyName(long nativePtr, String name);
+	@Override
+	public void setFamilyName(String name) {
+		setFamilyName(nativePtr, name);
+	}
+
+	private native String getFamilyName(long nativePtr);
+	public String getFamilyName() {
+		return getFamilyName(nativePtr);
+	}
+
+	private native void setGivenName(long nativePtr, String name);
+	@Override
+	public void setGivenName(String name) {
+		setGivenName(nativePtr, name);
+	}
+
+	private native String getGivenName(long nativePtr);
+	public String getGivenName() {
+		return getGivenName(nativePtr);
 	}
 	
 	private native void setOrganization(long nativePtr, String organization);
@@ -202,5 +228,11 @@ class LinphoneFriendImpl implements LinphoneFriend, Serializable {
 	@Override
 	public void removePhoneNumber(String phone) {
 		removePhoneNumber(nativePtr, phone);
+	}
+	
+	private native boolean isAlreadyPresentInFriendList(long nativePtr);
+	@Override
+	public boolean isAlreadyPresentInFriendList() {
+		return isAlreadyPresentInFriendList(nativePtr);
 	}
 }

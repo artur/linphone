@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package org.linphone.core;
 
@@ -172,9 +172,15 @@ public interface LinphoneCall {
 	CallDirection getDirection();
 	/**
 	 * get the call log associated to this call.
-	 * @Return LinphoneCallLog
+	 * @return LinphoneCallLog
 	**/
 	LinphoneCallLog getCallLog();
+
+    /**
+     * Returns the diversion address associated to this call if one exists.
+     *
+     */
+    LinphoneAddress getDiversionAddress();
 
 
 	/**
@@ -244,7 +250,7 @@ public interface LinphoneCall {
 	 * 1-2 = very poor quality <br>
 	 * 0-1 = can't be worse, mostly unusable <br>
 	 *
-	 * @returns The function returns -1 if no quality measurement is available, for example if no 
+	 * @return The function returns -1 if no quality measurement is available, for example if no 
 	 * active audio stream exist. Otherwise it returns the quality rating.
 	 */
 	float getCurrentQuality();

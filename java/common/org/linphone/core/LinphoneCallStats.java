@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package org.linphone.core;
 
@@ -101,6 +101,22 @@ public interface LinphoneCallStats {
 		}
 	}
 
+	static public enum LinphoneAddressFamily {
+		INET(0),
+		INET_6(1),
+		UNSPEC(2);
+
+		private int value;
+
+		LinphoneAddressFamily(int v) {
+			value = v;
+		}
+
+		public int getInt() {
+			return value;
+		}
+	}
+
 	/**
 	 * Get the stats media type
 	 * @return MediaType
@@ -177,4 +193,24 @@ public interface LinphoneCallStats {
 	 * @return The local late rate percentage.
 	**/
 	public float getLocalLateRate();
+
+	/**
+	 * Get the encoder name of specified payload
+	 * @param pl payload
+	 * @return The name of encoder
+     */
+	public String getEncoderName(PayloadType pl);
+
+	/**
+	 * Get the decoder name of specified payload
+	 * @param pl payload
+	 * @return The name of decoder
+	 */
+	public String getDecoderName(PayloadType pl);
+
+	/**
+	 * Get family of remote ip
+	 * @return enum LinphoneAddressFamily
+     */
+	public int getIpFamilyOfRemote();
 }

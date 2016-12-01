@@ -14,14 +14,14 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
-#include "linphonecore.h"
+#include "linphone/core.h"
 #include "private.h"
 #include "sal/sal.h"
 #include "ortp/rtpsession.h"
@@ -264,7 +264,6 @@ static void append_metrics_to_buffer(char ** buffer, size_t * size, size_t * off
 
 static int send_report(LinphoneCall* call, reporting_session_report_t * report, const char * report_event) {
 	LinphoneContent *content;
-	int expires = -1;
 	size_t offset = 0;
 	size_t size = 2048;
 	char * buffer;
@@ -357,7 +356,7 @@ static int send_report(LinphoneCall* call, reporting_session_report_t * report, 
 		collector_uri = ms_strdup_printf("sip:%s", linphone_proxy_config_get_domain(call->dest_proxy));
 	}
 	request_uri = linphone_address_new(collector_uri);
-	lev=linphone_core_create_publish(call->core, request_uri, "vq-rtcpxr", expires);
+	lev = linphone_core_create_one_shot_publish(call->core, request_uri, "vq-rtcpxr");
 	/* Special exception for quality report PUBLISH: if the collector_uri has any transport related parameters
 	 * (port, transport, maddr), then it is sent directly.
 	 * Otherwise it is routed as any LinphoneEvent publish, following proxy config policy.
@@ -370,7 +369,6 @@ static int send_report(LinphoneCall* call, reporting_session_report_t * report, 
 	}
 
 	if (linphone_event_send_publish(lev, content) != 0){
-		linphone_event_unref(lev);
 		lev=NULL;
 		ret=4;
 	} else {

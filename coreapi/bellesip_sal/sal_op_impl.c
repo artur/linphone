@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 #include "sal_impl.h"
 
@@ -28,6 +28,11 @@ SalOp * sal_op_new(Sal *sal){
 	op->sdp_handling=sal->default_sdp_handling;
 	sal_op_ref(op);
 	return op;
+}
+
+void sal_op_kill_dialog(SalOp *op) {
+	ms_warning("op [%p]: force kill of dialog [%p]", op, op->dialog);
+	belle_sip_dialog_delete(op->dialog);
 }
 
 void sal_op_release(SalOp *op){
@@ -235,6 +240,14 @@ int sal_ping(SalOp *op, const char *from, const char *to){
 	return sal_op_send_request(op,sal_op_build_request(op,"OPTIONS"));
 }
 
+void sal_op_set_replaces(SalOp* op,belle_sip_header_replaces_t* replaces) {
+	if (op->replaces){
+		belle_sip_object_unref(op->replaces);
+	}
+	op->replaces=replaces;
+	belle_sip_object_ref(op->replaces);
+}
+
 void sal_op_set_remote_ua(SalOp*op,belle_sip_message_t* message) {
 	belle_sip_header_user_agent_t* user_agent=belle_sip_message_get_header_by_type(message,belle_sip_header_user_agent_t);
 	char user_agent_string[256];
@@ -342,6 +355,9 @@ static int _sal_op_send_request_with_contact(SalOp* op, belle_sip_request_t* req
 			}
 #endif
 		}
+		/*because in case of tunnel, transport can be changed*/
+		transport=belle_sip_uri_get_transport_param(next_hop_uri);
+		
 		if ((strcmp(method,"REGISTER")==0 || strcmp(method,"SUBSCRIBE")==0) && transport &&
 			(strcasecmp(transport,"TCP")==0 || strcasecmp(transport,"TLS")==0)){
 			/*RFC 5923: add 'alias' parameter to tell the server that we want it to keep the connection for future requests*/
@@ -738,10 +754,10 @@ void sal_op_set_manual_refresher_mode(SalOp *op, bool_t enabled){
 	op->manual_refresher=enabled;
 }
 
-bool_t sal_op_is_ipv6(SalOp *op){
+int sal_op_get_address_family(SalOp *op){
 	belle_sip_transaction_t *tr=NULL;
 	belle_sip_header_address_t *contact;
-	belle_sip_request_t *req;
+	
 
 	if (op->refresher)
 		tr=(belle_sip_transaction_t *)belle_sip_refresher_get_transaction(op->refresher);
@@ -750,17 +766,29 @@ bool_t sal_op_is_ipv6(SalOp *op){
 		tr=(belle_sip_transaction_t *)op->pending_client_trans;
 	if (tr==NULL)
 		tr=(belle_sip_transaction_t *)op->pending_server_trans;
-
+	
 	if (tr==NULL){
 		ms_error("Unable to determine IP version from signaling operation.");
-		return FALSE;
+		return AF_UNSPEC;
 	}
-	req=belle_sip_transaction_get_request(tr);
-	contact=(belle_sip_header_address_t*)belle_sip_message_get_header_by_type(req,belle_sip_header_contact_t);
-	if (!contact){
-		ms_error("Unable to determine IP version from signaling operation, no contact header found.");
+	
+	
+	if (op->refresher) {
+		belle_sip_response_t *resp = belle_sip_transaction_get_response(tr);
+		belle_sip_header_via_t *via = resp ?belle_sip_message_get_header_by_type(resp,belle_sip_header_via_t):NULL;
+		if (!via){
+			ms_error("Unable to determine IP version from signaling operation, no via header found.");
+			return AF_UNSPEC;
+		}
+		return (strchr(belle_sip_header_via_get_host(via),':') != NULL) ? AF_INET6 : AF_INET;
+	} else {
+		belle_sip_request_t *req = belle_sip_transaction_get_request(tr);
+		contact=(belle_sip_header_address_t*)belle_sip_message_get_header_by_type(req,belle_sip_header_contact_t);
+		if (!contact){
+			ms_error("Unable to determine IP version from signaling operation, no contact header found.");
+		}
+		return sal_address_is_ipv6((SalAddress*)contact) ? AF_INET6 : AF_INET;
 	}
-	return sal_address_is_ipv6((SalAddress*)contact);
 }
 
 bool_t sal_op_is_idle(SalOp *op){
@@ -809,3 +837,26 @@ void sal_op_set_event(SalOp *op, const char *eventname){
 	}
 	op->event = header;
 }
+
+const char* sal_op_get_public_address(SalOp *op, int *port) {
+	if (op && op->refresher) {
+		return belle_sip_refresher_get_public_address(op->refresher, port);
+	}
+	return NULL;
+}
+
+const char* sal_op_get_local_address(SalOp *op, int *port) {
+	if (op && op->refresher) {
+		return belle_sip_refresher_get_local_address(op->refresher, port);
+	}
+	return NULL;
+}
+
+char* sal_op_get_dialog_id(const SalOp *op) {
+	if (op->dialog != NULL) {
+		return ms_strdup_printf("%s;to-tag=%s;from-tag=%s", ((SalOpBase*)op)->call_id,
+			belle_sip_dialog_get_remote_tag(op->dialog), belle_sip_dialog_get_local_tag(op->dialog));
+	}
+	return NULL;
+}
+

@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package org.linphone.core;
 import org.linphone.core.LinphoneCore.MediaDirection;
@@ -44,7 +44,7 @@ public interface LinphoneCallParams {
 	MediaEncryption getMediaEncryption();
 	/**
 	 * set media encryption (rtp) to use
-	 * @params menc: MediaEncryption.None, MediaEncryption.SRTP or MediaEncryption.ZRTP
+	 * @param menc MediaEncryption.None, MediaEncryption.SRTP or MediaEncryption.ZRTP
 	 */
 	void setMediaEnctyption(MediaEncryption menc);
 
@@ -94,7 +94,6 @@ public interface LinphoneCallParams {
 	/**
 	 * Returns the value of a custom header given its name.
 	 * If no header with that name exists, then null is returned.
-	 * @param name
 	 * @return value for the header, or null if it doesn't exist.
 	 */
 	String getCustomHeader(String name);
@@ -210,7 +209,7 @@ public interface LinphoneCallParams {
 	void enableRealTimeText(boolean yesno);
 	/**
 	 * Use to get real time text following rfc4103.
-	 * @returns returns true if call rtt is activated.
+	 * @return returns true if call rtt is activated.
 	**/
 	boolean realTimeTextEnabled();
 
@@ -228,13 +227,13 @@ public interface LinphoneCallParams {
 
 	/**
 	 * Set the audio stream direction.
-	 * @param The audio stream direction associated with this call params.
+	 * @param dir The audio stream direction associated with this call params.
 	**/
 	void setAudioDirection(MediaDirection dir);
 
 	/**
 	 * Set the video stream direction.
-	 * @param The video stream direction associated with this call params.
+	 * @param dir The video stream direction associated with this call params.
 	**/
 	void setVideoDirection(MediaDirection dir);
 }

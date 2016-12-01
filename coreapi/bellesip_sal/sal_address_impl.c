@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 #include "sal_impl.h"
 /**/
@@ -197,10 +197,24 @@ void sal_address_set_param(SalAddress *addr,const char* name,const char* value){
 	return ;
 }
 
+bool_t sal_address_has_param(const SalAddress *addr, const char *name){
+	belle_sip_parameters_t* parameters = BELLE_SIP_PARAMETERS(addr);
+	return belle_sip_parameters_has_parameter(parameters, name);
+}
+
+const char * sal_address_get_param(const SalAddress *addr, const char *name) {
+	belle_sip_parameters_t* parameters = BELLE_SIP_PARAMETERS(addr);
+	return belle_sip_parameters_get_parameter(parameters, name);
+}
 
 void sal_address_set_params(SalAddress *addr, const char *params){
 	belle_sip_parameters_t* parameters = BELLE_SIP_PARAMETERS(addr);
 	belle_sip_parameters_set(parameters,params);
+}
+
+void sal_address_set_uri_param(SalAddress *addr, const char *name, const char *value) {
+	belle_sip_parameters_t* parameters = BELLE_SIP_PARAMETERS(belle_sip_header_address_get_uri(BELLE_SIP_HEADER_ADDRESS(addr)));
+	belle_sip_parameters_set_parameter(parameters, name, value);
 }
 
 void sal_address_set_uri_params(SalAddress *addr, const char *params){
@@ -208,9 +222,14 @@ void sal_address_set_uri_params(SalAddress *addr, const char *params){
 	belle_sip_parameters_set(parameters,params);
 }
 
-bool_t sal_address_has_uri_param(SalAddress *addr, const char *name){
+bool_t sal_address_has_uri_param(const SalAddress *addr, const char *name){
 	belle_sip_parameters_t* parameters = BELLE_SIP_PARAMETERS(belle_sip_header_address_get_uri(BELLE_SIP_HEADER_ADDRESS(addr)));
 	return belle_sip_parameters_has_parameter(parameters, name);
+}
+
+const char * sal_address_get_uri_param(const SalAddress *addr, const char *name) {
+	belle_sip_parameters_t* parameters = BELLE_SIP_PARAMETERS(belle_sip_header_address_get_uri(BELLE_SIP_HEADER_ADDRESS(addr)));
+	return belle_sip_parameters_get_parameter(parameters, name);
 }
 
 void sal_address_set_header(SalAddress *addr, const char *header_name, const char *header_value){

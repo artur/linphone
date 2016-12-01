@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 /**
@@ -33,11 +33,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  *
  */
 
-#ifdef IN_LINPHONE
-#include "linphonecore.h"
-#else
-#include "linphone/linphonecore.h"
-#endif
+#include "linphone/core.h"
 
 #include <signal.h>
 
@@ -51,18 +47,26 @@ static void stop(int signum){
  * presence state change notification callback
  */
 static void notify_presence_recv_updated (LinphoneCore *lc,  LinphoneFriend *friend) {
-	const LinphonePresenceModel* model = linphone_friend_get_presence_model(friend);
 	const LinphoneAddress* friend_address = linphone_friend_get_address(friend);
-	LinphonePresenceActivity *activity = linphone_presence_model_get_activity(model);
-	char *activity_str = linphone_presence_activity_to_string(activity);
-	printf("New state state [%s] for user id [%s] \n"
-				,activity_str
-				,linphone_address_as_string (friend_address));
+	if (friend_address != NULL) {
+		const LinphonePresenceModel* model = linphone_friend_get_presence_model(friend);
+		LinphonePresenceActivity *activity = linphone_presence_model_get_activity(model);
+		char *activity_str = linphone_presence_activity_to_string(activity);
+		char *str = linphone_address_as_string (friend_address);
+		printf("New state state [%s] for user id [%s] \n"
+					,activity_str
+					,str);
+		ms_free(str);
+	}
 }
 static void new_subscription_requested (LinphoneCore *lc,  LinphoneFriend *friend, const char* url) {
 	const LinphoneAddress* friend_address = linphone_friend_get_address(friend);
-	printf(" [%s] wants to see your status, accepting\n"
-				,linphone_address_as_string (friend_address));
+
+	if (friend_address != NULL) {
+		char *str = linphone_address_as_string (friend_address);
+		printf(" [%s] wants to see your status, accepting\n", str);
+		ms_free(str);
+	}
 	linphone_friend_edit(friend); /* start editing friend */
 	linphone_friend_set_inc_subscribe_policy(friend,LinphoneSPAccept); /* Accept incoming subscription request for this friend*/
 	linphone_friend_done(friend); /*commit change*/

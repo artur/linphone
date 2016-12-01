@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import argparse
 import os
@@ -31,22 +31,30 @@ blacklisted_classes = [
 	'LinphoneTunnelConfig'
 ]
 blacklisted_events = [
+	'LinphoneChatMessageStateChangedCb',	# not respecting naming convention
 	'LinphoneCoreInfoReceivedCb',	# missing LinphoneInfoMessage
 	'LinphoneCoreNotifyReceivedCb',	# missing LinphoneContent
 	'LinphoneCoreFileTransferProgressIndicationCb',	# missing LinphoneContent
 	'LinphoneCoreFileTransferRecvCb',	# missing LinphoneContent
-	'LinphoneCoreFileTransferSendCb'	# missing LinphoneContent
+	'LinphoneCoreFileTransferSendCb',	# missing LinphoneContent
+	'LinphoneCoreTextMessageReceivedCb'	# not respecting naming convention
 ]
 blacklisted_functions = [
 	'linphone_call_log_get_local_stats',	# missing rtp_stats_t
 	'linphone_call_log_get_remote_stats',	# missing rtp_stats_t
 	'linphone_call_params_get_privacy',	# missing LinphonePrivacyMask
 	'linphone_call_params_set_privacy',	# missing LinphonePrivacyMask
+	'linphone_chat_message_start_file_download',	# callback function in parameter
 	'linphone_chat_message_state_to_string',	# There is no use to wrap this function
+	'linphone_chat_room_send_message2',	# callback function in parameter
 	'linphone_core_add_listener',
 	'linphone_core_can_we_add_call',	# private function
 	'linphone_core_enable_log_collection',	# need to handle class properties
+	'linphone_core_enable_logs',	# unhandled argument type FILE
+	'linphone_core_enable_logs_with_cb',	# callback function in parameter
 	'linphone_core_get_audio_port_range',	# to be handwritten because of result via arguments
+	'linphone_core_get_default_proxy',
+	'linphone_core_get_network_simulator_params',	# missing OrtpNetworkSimulatorParams
 	'linphone_core_get_supported_video_sizes',	# missing MSVideoSizeDef
 	'linphone_core_get_video_policy',	# missing LinphoneVideoPolicy
 	'linphone_core_get_video_port_range',	# to be handwritten because of result via arguments
@@ -60,7 +68,9 @@ blacklisted_functions = [
 	'linphone_core_set_log_handler',	# Hand-written but put directly in the linphone module
 	'linphone_core_set_log_level',	# There is no use to wrap this function
 	'linphone_core_set_log_level_mask',	# There is no use to wrap this function
+	'linphone_core_set_network_simulator_params',	# missing OrtpNetworkSimulatorParams
 	'linphone_core_set_video_policy',	# missing LinphoneVideoPolicy
+	'linphone_nat_policy_get_stun_server_addrinfo',
 	'linphone_proxy_config_get_privacy',	# missing LinphonePrivacyMask
 	'linphone_proxy_config_normalize_number',	# to be handwritten because of result via arguments
 	'linphone_proxy_config_set_file_transfer_server',	# defined but not implemented in linphone core

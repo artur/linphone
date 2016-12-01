@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import argparse
 import os
@@ -86,6 +86,8 @@ class CArgument(CObject):
 				fullySplittedType.append('*')
 			else:
 				fullySplittedType.append(s)
+		if 'MS2_DEPRECATED' in fullySplittedType:
+			fullySplittedType.remove('MS2_DEPRECATED')
 		isStruct = False
 		isEnum = False
 		self.ctype = 'int' # Default to int so that the result is correct eg. for 'unsigned short'
@@ -303,7 +305,7 @@ class Project:
 				para.remove(n)
 			for n in para.findall('.//ref'):
 				n.attrib = {}
-			for n in para.findall(".//mslist"):
+			for n in para.findall(".//bctbx_list"):
 				para.remove(n)
 		if descriptionNode.tag == 'parameterdescription':
 			descriptionNode.tag = 'description'
@@ -436,8 +438,8 @@ class Project:
 			returnarg = CArgument(returntype, enums = self.enums, structs = self.__structs)
 			returndesc = node.find("./detaileddescription/para/simplesect[@kind='return']")
 			if returndesc is not None:
-				if returnarg.ctype == 'MSList':
-					n = returndesc.find('.//mslist')
+				if returnarg.ctype == 'MSList' or returnarg.ctype == 'bctbx_list_t':
+					n = returndesc.find('.//bctbxlist')
 					if n is not None:
 						returnarg.containedType = n.text
 				returnarg.description = self.__cleanDescription(returndesc)
@@ -507,8 +509,8 @@ class Project:
 		returnarg = CArgument(t, enums = self.enums, structs = self.__structs)
 		returndesc = node.find("./detaileddescription/para/simplesect[@kind='return']")
 		if returndesc is not None:
-			if returnarg.ctype == 'MSList':
-				n = returndesc.find('.//mslist')
+			if returnarg.ctype == 'MSList' or returnarg.ctype == 'bctbx_list_t':
+				n = returndesc.find('.//bctbxlist')
 				if n is not None:
 					returnarg.containedType = n.text
 			returnarg.description = self.__cleanDescription(returndesc)
@@ -530,8 +532,8 @@ class Project:
 				for arg in argslist.arguments:
 					for paramdesc in paramdescs:
 						if arg.name == paramdesc.find('./parameternamelist').find('./parametername').text:
-							if arg.ctype == 'MSList':
-								n = paramdesc.find('.//mslist')
+							if arg.ctype == 'MSList' or arg.ctype == 'bctbx_list_t':
+								n = paramdesc.find('.//bctbxlist')
 								if n is not None:
 									arg.containedType = n.text
 							arg.description = self.__cleanDescription(paramdesc.find('./parameterdescription'))

@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "sal_impl.h"
@@ -115,8 +115,8 @@ void sal_set_log_level(OrtpLogLevel level) {
 }
 
 void sal_add_pending_auth(Sal *sal, SalOp *op){
-	if (ms_list_find(sal->pending_auths,op)==NULL){
-		sal->pending_auths=ms_list_append(sal->pending_auths,op);
+	if (bctbx_list_find(sal->pending_auths,op)==NULL){
+		sal->pending_auths=bctbx_list_append(sal->pending_auths,op);
 		op->has_auth_pending=TRUE;
 	}
 }
@@ -124,8 +124,8 @@ void sal_add_pending_auth(Sal *sal, SalOp *op){
 void sal_remove_pending_auth(Sal *sal, SalOp *op){
 	if (op->has_auth_pending){
 		op->has_auth_pending=FALSE;
-		if (ms_list_find(sal->pending_auths,op)){
-			sal->pending_auths=ms_list_remove(sal->pending_auths,op);
+		if (bctbx_list_find(sal->pending_auths,op)){
+			sal->pending_auths=bctbx_list_remove(sal->pending_auths,op);
 		}
 	}
 }
@@ -226,6 +226,7 @@ static void process_request_event(void *ud, const belle_sip_request_event_t *eve
 	belle_sip_header_address_t* address=NULL;
 	belle_sip_header_from_t* from_header;
 	belle_sip_header_to_t* to;
+	belle_sip_header_diversion_t* diversion;
 	belle_sip_response_t* resp;
 	belle_sip_header_t *evh;
 	const char *method=belle_sip_request_get_method(req);
@@ -336,6 +337,24 @@ static void process_request_event(void *ud, const belle_sip_request_event_t *eve
 
 		sal_op_set_to_address(op,(SalAddress*)address);
 		belle_sip_object_unref(address);
+	}
+
+	if(!op->base.diversion_address){
+		diversion=belle_sip_message_get_header_by_type(BELLE_SIP_MESSAGE(req),belle_sip_header_diversion_t);
+		if (diversion) {
+			if (belle_sip_header_address_get_uri(BELLE_SIP_HEADER_ADDRESS(diversion)))
+				address=belle_sip_header_address_create(belle_sip_header_address_get_displayname(BELLE_SIP_HEADER_ADDRESS(diversion))
+						,belle_sip_header_address_get_uri(BELLE_SIP_HEADER_ADDRESS(diversion)));
+			else if ((belle_sip_header_address_get_absolute_uri(BELLE_SIP_HEADER_ADDRESS(diversion))))
+				address=belle_sip_header_address_create2(belle_sip_header_address_get_displayname(BELLE_SIP_HEADER_ADDRESS(diversion))
+						,belle_sip_header_address_get_absolute_uri(BELLE_SIP_HEADER_ADDRESS(diversion)));
+			else
+				ms_warning("Cannot not find diversion header from request [%p]",req);
+			if (address) {
+				sal_op_set_diversion_address(op,(SalAddress*)address);
+				belle_sip_object_unref(address);
+			}
+		}
 	}
 
 	if (!op->base.origin) {
@@ -593,9 +612,10 @@ void sal_uninit(Sal* sal){
 	belle_sip_object_unref(sal->stack);
 	belle_sip_object_unref(sal->listener);
 	if (sal->supported) belle_sip_object_unref(sal->supported);
-	ms_list_free_with_data(sal->supported_tags,ms_free);
+	bctbx_list_free_with_data(sal->supported_tags,ms_free);
 	if (sal->uuid) ms_free(sal->uuid);
 	if (sal->root_ca) ms_free(sal->root_ca);
+	if (sal->root_ca_data) ms_free(sal->root_ca_data);
 	ms_free(sal);
 };
 
@@ -761,21 +781,33 @@ static void set_tls_properties(Sal *ctx){
 		else if (!ctx->tls_verify_cn) verify_exceptions = BELLE_TLS_VERIFY_CN_MISMATCH;
 		belle_tls_crypto_config_set_verify_exceptions(crypto_config, verify_exceptions);
 		if (ctx->root_ca != NULL) belle_tls_crypto_config_set_root_ca(crypto_config, ctx->root_ca);
+		if (ctx->root_ca_data != NULL) belle_tls_crypto_config_set_root_ca_data(crypto_config, ctx->root_ca_data);
 		if (ctx->ssl_config != NULL) belle_tls_crypto_config_set_ssl_config(crypto_config, ctx->ssl_config);
 		belle_sip_tls_listening_point_set_crypto_config(tlp, crypto_config);
 		belle_sip_object_unref(crypto_config);
 	}
 }
 
-void sal_set_root_ca(Sal* ctx, const char* rootCa){
-	if (ctx->root_ca){
+void sal_set_root_ca(Sal* ctx, const char* rootCa) {
+	if (ctx->root_ca) {
 		ms_free(ctx->root_ca);
-		ctx->root_ca=NULL;
+		ctx->root_ca = NULL;
 	}
 	if (rootCa)
-		ctx->root_ca=ms_strdup(rootCa);
+		ctx->root_ca = ms_strdup(rootCa);
 	set_tls_properties(ctx);
-	return ;
+	return;
+}
+
+void sal_set_root_ca_data(Sal* ctx, const char* data) {
+	if (ctx->root_ca_data) {
+		ms_free(ctx->root_ca_data);
+		ctx->root_ca_data = NULL;
+	}
+	if (data)
+		ctx->root_ca_data = ms_strdup(data);
+	set_tls_properties(ctx);
+	return;
 }
 
 void sal_verify_server_certificates(Sal *ctx, bool_t verify){
@@ -804,8 +836,8 @@ int sal_iterate(Sal *sal){
 	belle_sip_stack_sleep(sal->stack,0);
 	return 0;
 }
-MSList * sal_get_pending_auths(Sal *sal){
-	return ms_list_copy(sal->pending_auths);
+bctbx_list_t * sal_get_pending_auths(Sal *sal){
+	return bctbx_list_copy(sal->pending_auths);
 }
 
 /*misc*/
@@ -858,10 +890,10 @@ int sal_get_transport_timeout(const Sal* sal)  {
 	return belle_sip_stack_get_transport_timeout(sal->stack);
 }
 
-void sal_set_dns_servers(Sal *sal, const MSList *servers){
+void sal_set_dns_servers(Sal *sal, const bctbx_list_t *servers){
 	belle_sip_list_t *l = NULL;
 
-	/*we have to convert the MSList into a belle_sip_list_t first*/
+	/*we have to convert the bctbx_list_t into a belle_sip_list_t first*/
 	for (; servers != NULL; servers = servers->next){
 		l = belle_sip_list_append(l, servers->data);
 	}
@@ -875,6 +907,14 @@ void sal_enable_dns_srv(Sal *sal, bool_t enable) {
 
 bool_t sal_dns_srv_enabled(const Sal *sal) {
 	return (bool_t)belle_sip_stack_dns_srv_enabled(sal->stack);
+}
+
+void sal_enable_dns_search(Sal *sal, bool_t enable) {
+	belle_sip_stack_enable_dns_search(sal->stack, (unsigned char)enable);
+}
+
+bool_t sal_dns_search_enabled(const Sal *sal) {
+	return (bool_t)belle_sip_stack_dns_search_enabled(sal->stack);
 }
 
 void sal_set_dns_user_hosts_file(Sal *sal, const char *hosts_file) {
@@ -951,6 +991,14 @@ const char *sal_custom_header_find(const SalCustomHeader *ch, const char *name){
 		}
 	}
 	return NULL;
+}
+
+SalCustomHeader *sal_custom_header_remove(SalCustomHeader *ch, const char *name) {
+	belle_sip_message_t *msg=(belle_sip_message_t*)ch;
+	if (msg==NULL) return NULL;
+	
+	belle_sip_message_remove_header(msg, name);
+	return (SalCustomHeader*)msg;
 }
 
 void sal_custom_header_free(SalCustomHeader *ch){
@@ -1036,7 +1084,7 @@ int sal_generate_uuid(char *uuid, size_t len) {
 	written=snprintf(uuid,len,"%8.8x-%4.4x-%4.4x-%2.2x%2.2x-", uuid_struct.time_low, uuid_struct.time_mid,
 			uuid_struct.time_hi_and_version, uuid_struct.clock_seq_hi_and_reserved,
 			uuid_struct.clock_seq_low);
-	if (written>len+13){
+	if ((written < 0) || ((size_t)written > (len +13))) {
 		ms_error("sal_create_uuid(): buffer is too short !");
 		return -1;
 	}
@@ -1055,7 +1103,7 @@ int sal_create_uuid(Sal*ctx, char *uuid, size_t len) {
 }
 
 static void make_supported_header(Sal *sal){
-	MSList *it;
+	bctbx_list_t *it;
 	char *alltags=NULL;
 	size_t buflen=64;
 	size_t written=0;
@@ -1080,7 +1128,7 @@ static void make_supported_header(Sal *sal){
 }
 
 void sal_set_supported_tags(Sal *ctx, const char* tags){
-	ctx->supported_tags=ms_list_free_with_data(ctx->supported_tags,ms_free);
+	ctx->supported_tags=bctbx_list_free_with_data(ctx->supported_tags,ms_free);
 	if (tags){
 		char *iter;
 		char *buffer=ms_strdup(tags);
@@ -1089,7 +1137,7 @@ void sal_set_supported_tags(Sal *ctx, const char* tags){
 		iter=buffer;
 		while((tag=strtok_r(iter,", ",&context))!=NULL){
 			iter=NULL;
-			ctx->supported_tags=ms_list_append(ctx->supported_tags,ms_strdup(tag));
+			ctx->supported_tags=bctbx_list_append(ctx->supported_tags,ms_strdup(tag));
 		}
 		ms_free(buffer);
 	}
@@ -1104,19 +1152,19 @@ const char *sal_get_supported_tags(Sal *ctx){
 }
 
 void sal_add_supported_tag(Sal *ctx, const char* tag){
-	MSList *elem=ms_list_find_custom(ctx->supported_tags,(MSCompareFunc)strcasecmp,tag);
+	bctbx_list_t *elem=bctbx_list_find_custom(ctx->supported_tags,(bctbx_compare_func)strcasecmp,tag);
 	if (!elem){
-		ctx->supported_tags=ms_list_append(ctx->supported_tags,ms_strdup(tag));
+		ctx->supported_tags=bctbx_list_append(ctx->supported_tags,ms_strdup(tag));
 		make_supported_header(ctx);
 	}
 
 }
 
 void sal_remove_supported_tag(Sal *ctx, const char* tag){
-	MSList *elem=ms_list_find_custom(ctx->supported_tags,(MSCompareFunc)strcasecmp,tag);
+	bctbx_list_t *elem=bctbx_list_find_custom(ctx->supported_tags,(bctbx_compare_func)strcasecmp,tag);
 	if (elem){
 		ms_free(elem->data);
-		ctx->supported_tags=ms_list_remove_link(ctx->supported_tags,elem);
+		ctx->supported_tags=bctbx_list_erase_link(ctx->supported_tags,elem);
 		make_supported_header(ctx);
 	}
 }
@@ -1154,11 +1202,14 @@ SalResolverContext * sal_resolve_a(Sal* sal, const char *name, int port, int fam
 	return (SalResolverContext*)belle_sip_stack_resolve_a(sal->stack,name,port,family,(belle_sip_resolver_callback_t)cb,data);
 }
 
-/*
-void sal_resolve_cancel(Sal *sal, SalResolverContext* ctx){
-	belle_sip_stack_resolve_cancel(sal->stack,ctx);
+SalResolverContext * sal_resolve(Sal *sal, const char *service, const char *transport, const char *name, int port, int family, SalResolverCallback cb, void *data) {
+	return (SalResolverContext *)belle_sip_stack_resolve(sal->stack, service, transport, name, port, family, (belle_sip_resolver_callback_t)cb, data);
 }
-*/
+
+void sal_resolve_cancel(SalResolverContext* ctx){
+	belle_sip_resolver_context_cancel((belle_sip_resolver_context_t*)ctx);
+}
+
 
 void sal_enable_unconditional_answer(Sal *sal,int value) {
 	belle_sip_provider_enable_unconditional_answer(sal->prov,value);
@@ -1170,7 +1221,7 @@ void sal_enable_unconditional_answer(Sal *sal,int value) {
  * @param format either PEM or DER
  */
 void sal_certificates_chain_parse_file(SalAuthInfo* auth_info, const char* path, SalCertificateRawFormat format) {
-	auth_info->certificates = (SalCertificatesChain*) belle_sip_certificates_chain_parse_file(path, (belle_sip_certificate_raw_format_t)format); //
+	auth_info->certificates = (SalCertificatesChain*) belle_sip_certificates_chain_parse_file(path, (belle_sip_certificate_raw_format_t)format);
 	if (auth_info->certificates) belle_sip_object_ref((belle_sip_object_t *) auth_info->certificates);
 }
 
@@ -1181,6 +1232,28 @@ void sal_certificates_chain_parse_file(SalAuthInfo* auth_info, const char* path,
  */
 void sal_signing_key_parse_file(SalAuthInfo* auth_info, const char* path, const char *passwd) {
 	auth_info->key = (SalSigningKey *) belle_sip_signing_key_parse_file(path, passwd);
+	if (auth_info->key) belle_sip_object_ref((belle_sip_object_t *) auth_info->key);
+}
+
+/** Parse a buffer containing either a certificate chain order in PEM format or a single DER cert
+ * @param auth_info structure where to store the result of parsing
+ * @param buffer the buffer to parse
+ * @param format either PEM or DER
+ */
+void sal_certificates_chain_parse(SalAuthInfo* auth_info, const char* buffer, SalCertificateRawFormat format) {
+	size_t len = buffer != NULL ? strlen(buffer) : 0;
+	auth_info->certificates = (SalCertificatesChain*) belle_sip_certificates_chain_parse(buffer, len, (belle_sip_certificate_raw_format_t)format);
+	if (auth_info->certificates) belle_sip_object_ref((belle_sip_object_t *) auth_info->certificates);
+}
+
+/**
+ * Parse a buffer containing either a private or public rsa key
+ * @param auth_info structure where to store the result of parsing
+ * @param passwd password (optionnal)
+ */
+void sal_signing_key_parse(SalAuthInfo* auth_info, const char* buffer, const char *passwd) {
+	size_t len = buffer != NULL ? strlen(buffer) : 0;
+	auth_info->key = (SalSigningKey *) belle_sip_signing_key_parse(buffer, len, passwd);
 	if (auth_info->key) belle_sip_object_ref((belle_sip_object_t *) auth_info->key);
 }
 
@@ -1286,6 +1359,140 @@ const char *sal_get_http_proxy_host(const Sal *sal) {
 
 int sal_get_http_proxy_port(const Sal *sal) {
 	return belle_sip_stack_get_http_proxy_port(sal->stack);
+}
+
+static belle_sip_header_t * sal_body_handler_find_header(const SalBodyHandler *body_handler, const char *header_name) {
+	belle_sip_body_handler_t *bsbh = BELLE_SIP_BODY_HANDLER(body_handler);
+	const belle_sip_list_t *l = belle_sip_body_handler_get_headers(bsbh);
+	for (; l != NULL; l = l->next) {
+		belle_sip_header_t *header = BELLE_SIP_HEADER(l->data);
+		if (strcmp(belle_sip_header_get_name(header), header_name) == 0) {
+			return header;
+		}
+	}
+	return NULL;
+}
+
+SalBodyHandler * sal_body_handler_new(void) {
+	belle_sip_memory_body_handler_t *body_handler = belle_sip_memory_body_handler_new(NULL, NULL);
+	return (SalBodyHandler *)BELLE_SIP_BODY_HANDLER(body_handler);
+}
+
+SalBodyHandler * sal_body_handler_ref(SalBodyHandler *body_handler) {
+	return (SalBodyHandler *)belle_sip_object_ref(BELLE_SIP_OBJECT(body_handler));
+}
+
+void sal_body_handler_unref(SalBodyHandler *body_handler) {
+	belle_sip_object_unref(BELLE_SIP_OBJECT(body_handler));
+}
+
+const char * sal_body_handler_get_type(const SalBodyHandler *body_handler) {
+	belle_sip_header_content_type_t *content_type = BELLE_SIP_HEADER_CONTENT_TYPE(sal_body_handler_find_header(body_handler, "Content-Type"));
+	if (content_type != NULL) {
+		return belle_sip_header_content_type_get_type(content_type);
+	}
+	return NULL;
+}
+
+void sal_body_handler_set_type(SalBodyHandler *body_handler, const char *type) {
+	belle_sip_header_content_type_t *content_type = BELLE_SIP_HEADER_CONTENT_TYPE(sal_body_handler_find_header(body_handler, "Content-Type"));
+	if (content_type == NULL) {
+		content_type = belle_sip_header_content_type_new();
+		belle_sip_body_handler_add_header(BELLE_SIP_BODY_HANDLER(body_handler), BELLE_SIP_HEADER(content_type));
+	}
+	belle_sip_header_content_type_set_type(content_type, type);
+}
+
+const char * sal_body_handler_get_subtype(const SalBodyHandler *body_handler) {
+	belle_sip_header_content_type_t *content_type = BELLE_SIP_HEADER_CONTENT_TYPE(sal_body_handler_find_header(body_handler, "Content-Type"));
+	if (content_type != NULL) {
+		return belle_sip_header_content_type_get_subtype(content_type);
+	}
+	return NULL;
+}
+
+void sal_body_handler_set_subtype(SalBodyHandler *body_handler, const char *subtype) {
+	belle_sip_header_content_type_t *content_type = BELLE_SIP_HEADER_CONTENT_TYPE(sal_body_handler_find_header(body_handler, "Content-Type"));
+	if (content_type == NULL) {
+		content_type = belle_sip_header_content_type_new();
+		belle_sip_body_handler_add_header(BELLE_SIP_BODY_HANDLER(body_handler), BELLE_SIP_HEADER(content_type));
+	}
+	belle_sip_header_content_type_set_subtype(content_type, subtype);
+}
+
+const char * sal_body_handler_get_encoding(const SalBodyHandler *body_handler) {
+	belle_sip_header_t *content_encoding = sal_body_handler_find_header(body_handler, "Content-Encoding");
+	if (content_encoding != NULL) {
+		return belle_sip_header_get_unparsed_value(content_encoding);
+	}
+	return NULL;
+}
+
+void sal_body_handler_set_encoding(SalBodyHandler *body_handler, const char *encoding) {
+	belle_sip_header_t *content_encoding = sal_body_handler_find_header(body_handler, "Content-Encoding");
+	if (content_encoding != NULL) {
+		belle_sip_body_handler_remove_header_from_ptr(BELLE_SIP_BODY_HANDLER(body_handler), content_encoding);
+	}
+	belle_sip_body_handler_add_header(BELLE_SIP_BODY_HANDLER(body_handler), belle_sip_header_create("Content-Encoding", encoding));
+}
+
+void * sal_body_handler_get_data(const SalBodyHandler *body_handler) {
+	return belle_sip_memory_body_handler_get_buffer(BELLE_SIP_MEMORY_BODY_HANDLER(body_handler));
+}
+
+void sal_body_handler_set_data(SalBodyHandler *body_handler, void *data) {
+	belle_sip_memory_body_handler_set_buffer(BELLE_SIP_MEMORY_BODY_HANDLER(body_handler), data);
+}
+
+size_t sal_body_handler_get_size(const SalBodyHandler *body_handler) {
+	return belle_sip_body_handler_get_size(BELLE_SIP_BODY_HANDLER(body_handler));
+}
+
+void sal_body_handler_set_size(SalBodyHandler *body_handler, size_t size) {
+	belle_sip_header_content_length_t *content_length = BELLE_SIP_HEADER_CONTENT_LENGTH(sal_body_handler_find_header(body_handler, "Content-Length"));
+	if (content_length == NULL) {
+		content_length = belle_sip_header_content_length_new();
+		belle_sip_body_handler_add_header(BELLE_SIP_BODY_HANDLER(body_handler), BELLE_SIP_HEADER(content_length));
+	}
+	belle_sip_header_content_length_set_content_length(content_length, size);
+	belle_sip_body_handler_set_size(BELLE_SIP_BODY_HANDLER(body_handler), size);
+}
+
+bool_t sal_body_handler_is_multipart(const SalBodyHandler *body_handler) {
+	if (BELLE_SIP_IS_INSTANCE_OF(body_handler, belle_sip_multipart_body_handler_t)) return TRUE;
+	return FALSE;
+}
+
+SalBodyHandler * sal_body_handler_get_part(const SalBodyHandler *body_handler, int idx) {
+	const belle_sip_list_t *l = belle_sip_multipart_body_handler_get_parts(BELLE_SIP_MULTIPART_BODY_HANDLER(body_handler));
+	return (SalBodyHandler *)belle_sip_list_nth_data(l, idx);
+}
+
+SalBodyHandler * sal_body_handler_find_part_by_header(const SalBodyHandler *body_handler, const char *header_name, const char *header_value) {
+	const belle_sip_list_t *l = belle_sip_multipart_body_handler_get_parts(BELLE_SIP_MULTIPART_BODY_HANDLER(body_handler));
+	for (; l != NULL; l = l->next) {
+		belle_sip_body_handler_t *bsbh = BELLE_SIP_BODY_HANDLER(l->data);
+		const belle_sip_list_t *headers = belle_sip_body_handler_get_headers(bsbh);
+		for (; headers != NULL; headers = headers->next) {
+			belle_sip_header_t *header = BELLE_SIP_HEADER(headers->data);
+			if ((strcmp(belle_sip_header_get_name(header), header_name) == 0) && (strcmp(belle_sip_header_get_unparsed_value(header), header_value) == 0)) {
+				return (SalBodyHandler *)bsbh;
+			}
+		}
+	}
+	return NULL;
+}
+
+const char * sal_body_handler_get_header(const SalBodyHandler *body_handler, const char *header_name) {
+	belle_sip_header_t *header = sal_body_handler_find_header(body_handler, header_name);
+	if (header != NULL) {
+		return belle_sip_header_get_unparsed_value(header);
+	}
+	return NULL;
+}
+
+void *sal_get_stack_impl(Sal *sal) {
+	return sal->stack;
 }
 
 

@@ -1,3 +1,22 @@
+/*
+media-encryption.cc
+Copyright (C) 2016 Belledonne Communications, Grenoble, France 
+
+This library is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or (at
+your option) any later version.
+
+This library is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this library; if not, write to the Free Software Foundation,
+Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+*/
+
 #include "media-encryption.h"
 
 using namespace std;
@@ -25,7 +44,7 @@ MediaEncryptionResponse::MediaEncryptionResponse(LinphoneCore *core) : Response(
 			ost << "DTLS\n";
 			break;
 	}
-	setBody(ost.str().c_str());
+	setBody(ost.str());
 }
 
 MediaEncryptionCommand::MediaEncryptionCommand() :
@@ -42,30 +61,32 @@ MediaEncryptionCommand::MediaEncryptionCommand() :
 						"Encryption: srtp"));
 }
 
-void MediaEncryptionCommand::exec(Daemon *app, const char *args) {
+void MediaEncryptionCommand::exec(Daemon *app, const string& args) {
 	string encryption_str;
 	istringstream ist(args);
 	ist >> encryption_str;
 	if (ist.eof() && (encryption_str.length() == 0)) {
 		app->sendResponse(MediaEncryptionResponse(app->getCore()));
-	} else if (ist.fail()) {
+		return;
+	}
+	if (ist.fail()) {
 		app->sendResponse(Response("Incorrect parameter.", Response::Error));
+		return;
+	}
+	LinphoneMediaEncryption encryption;
+	if (encryption_str.compare("none") == 0) {
+		encryption = LinphoneMediaEncryptionNone;
+	} else if (encryption_str.compare("srtp") == 0) {
+		encryption = LinphoneMediaEncryptionSRTP;
+	} else if (encryption_str.compare("zrtp") == 0) {
+		encryption = LinphoneMediaEncryptionZRTP;
 	} else {
-		LinphoneMediaEncryption encryption;
-		if (encryption_str.compare("none") == 0) {
-			encryption = LinphoneMediaEncryptionNone;
-		} else if (encryption_str.compare("srtp") == 0) {
-			encryption = LinphoneMediaEncryptionSRTP;
-		} else if (encryption_str.compare("zrtp") == 0) {
-			encryption = LinphoneMediaEncryptionZRTP;
-		} else {
-			app->sendResponse(Response("Incorrect parameter.", Response::Error));
-			return;
-		}
-		if (linphone_core_set_media_encryption(app->getCore(), encryption)==0){
-			app->sendResponse(MediaEncryptionResponse(app->getCore()));
-		}else{
-			app->sendResponse(Response("Unsupported media encryption", Response::Error));
-		}
+		app->sendResponse(Response("Incorrect parameter.", Response::Error));
+		return;
+	}
+	if (linphone_core_set_media_encryption(app->getCore(), encryption) == 0) {
+		app->sendResponse(MediaEncryptionResponse(app->getCore()));
+	}else{
+		app->sendResponse(Response("Unsupported media encryption", Response::Error));
 	}
 }

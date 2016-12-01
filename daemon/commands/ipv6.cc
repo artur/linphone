@@ -1,3 +1,22 @@
+/*
+ipv6.cc
+Copyright (C) 2016 Belledonne Communications, Grenoble, France 
+
+This library is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or (at
+your option) any later version.
+
+This library is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this library; if not, write to the Free Software Foundation,
+Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+*/
+
 #include "ipv6.h"
 
 using namespace std;
@@ -16,7 +35,7 @@ IPv6Response::IPv6Response(LinphoneCore *core) : Response() {
 	} else {
 		ost << "disabled\n";
 	}
-	setBody(ost.str().c_str());
+	setBody(ost.str());
 }
 
 IPv6Command::IPv6Command() :
@@ -33,21 +52,22 @@ IPv6Command::IPv6Command() :
 						"State: disabled"));
 }
 
-void IPv6Command::exec(Daemon *app, const char *args) {
+void IPv6Command::exec(Daemon *app, const string& args) {
 	string status;
 	istringstream ist(args);
 	ist >> status;
 	if (ist.fail()) {
 		app->sendResponse(IPv6Response(app->getCore()));
-	} else {
-		if (status.compare("enable") == 0) {
-			linphone_core_enable_ipv6(app->getCore(), TRUE);
-		} else if (status.compare("disable") == 0) {
-			linphone_core_enable_ipv6(app->getCore(), FALSE);
-		} else {
-			app->sendResponse(Response("Incorrect parameter.", Response::Error));
-			return;
-		}
-		app->sendResponse(IPv6Response(app->getCore()));
+		return;
 	}
+
+	if (status.compare("enable") == 0) {
+		linphone_core_enable_ipv6(app->getCore(), TRUE);
+	} else if (status.compare("disable") == 0) {
+		linphone_core_enable_ipv6(app->getCore(), FALSE);
+	} else {
+		app->sendResponse(Response("Incorrect parameter.", Response::Error));
+		return;
+	}
+	app->sendResponse(IPv6Response(app->getCore()));
 }

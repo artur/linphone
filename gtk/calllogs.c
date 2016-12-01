@@ -14,10 +14,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "linphone.h"
+#include <bctoolbox/vfs.h>
 
 #define CONFIG_FILE ".linphone-call-history.db"
 
@@ -28,7 +29,7 @@ char *linphone_gtk_call_logs_storage_get_db_file(const char *filename){
 	db_file=(char *)g_malloc(path_max*sizeof(char));
 	if (filename==NULL) filename=CONFIG_FILE;
 	/*try accessing a local file first if exists*/
-	if (access(CONFIG_FILE,F_OK)==0){
+	if (bctbx_file_exist(CONFIG_FILE)==0){
 		snprintf(db_file,path_max,"%s",filename);
 	}else{
 #ifdef _WIN32
@@ -313,12 +314,11 @@ void linphone_gtk_call_log_update(GtkWidget *w){
 			start_date[strlen(start_date) - 1] = '\0';
 		}
 #endif
-		lf=linphone_core_get_friend_by_address(linphone_gtk_get_core(),addr);
+		lf=linphone_core_find_friend(linphone_gtk_get_core(),la);
 		if(lf != NULL){
-			if ((display=linphone_address_get_display_name(linphone_friend_get_address(lf)))) {
-				/*update display name from friend*/
-				linphone_address_set_display_name(la,display);
-			}
+			/*update display name from friend*/
+			display = linphone_friend_get_name(lf);
+			if (display != NULL) linphone_address_set_display_name(la, display);
 		} else {
 			display=linphone_address_get_display_name(la);
 		}

@@ -16,7 +16,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 ############################################################################
 
@@ -38,7 +38,7 @@ endif()
 
 if(GIT_DESCRIBE)
 	if(NOT GIT_TAG STREQUAL LINPHONE_VERSION)
-		message(FATAL_ERROR "LINPHONE_VERSION and git tag differ. Please put them identical")
+		message(FATAL_ERROR "LINPHONE_VERSION (${LINPHONE_VERSION}) and git tag (${GIT_TAG}) differ. Please put them identical")
 	endif()
 	set(LIBLINPHONE_GIT_VERSION "${GIT_DESCRIBE}")
 	configure_file("${WORK_DIR}/gitversion.h.in" "${OUTPUT_DIR}/liblinphone_gitversion.h" @ONLY)

@@ -14,16 +14,24 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "linphone.h"
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <direct.h>
+#define mkdir _mkdir
+#else
 #include <sys/stat.h>
 #include <sys/types.h>
 #endif
+
+#ifdef _MSC_VER
+#pragma warning(disable : 4996)
+#else
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
 extern gchar *linphone_logfile;
 

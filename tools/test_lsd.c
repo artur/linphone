@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 /* Linphone Sound Daemon: is a lightweight utility to play sounds to speaker during a conversation.
@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  This file is a test program that plays several sound files and places a call simultatenously.
 */
 
-#include "linphonecore_utils.h"
+#include "linphone/core_utils.h"
 
 static void play_finished(LsdPlayer *p) {
 	const char *filename = (const char *)lsd_player_get_user_pointer(p);

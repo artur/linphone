@@ -14,16 +14,16 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 
 #define VIDEOSELFVIEW_DEFAULT 0
 
 #include "linphone.h"
-#include "lpconfig.h"
+#include "linphone/lpconfig.h"
 #include "liblinphone_gitversion.h"
-
+#include <bctoolbox/vfs.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -36,8 +36,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #endif
 
 #ifdef _WIN32
-#define chdir _chdir
 #include "direct.h"
+#define chdir _chdir
 #ifndef F_OK
 #define F_OK 00 /*visual studio does not define F_OK*/
 #endif
@@ -186,7 +186,7 @@ static char _factory_config_file[1024];
 static const char *linphone_gtk_get_factory_config_file(void){
 	char* path = NULL;
 	/*try accessing a local file first if exists*/
-	if (access(FACTORY_CONFIG_FILE,F_OK)==0){
+	if (bctbx_file_exist(FACTORY_CONFIG_FILE)==0){
 		path = ms_strdup(FACTORY_CONFIG_FILE);
 	} else {
 		char *progdir;
@@ -215,8 +215,9 @@ static const char *linphone_gtk_get_factory_config_file(void){
 		}
 	}
 	if (path) {
+		ms_message("Factory config file expected at %s", path);
 		//use factory file only if it exists
-		if (access(path,F_OK)==0){
+		if (bctbx_file_exist(path)==0){
 			snprintf(_factory_config_file, sizeof(_factory_config_file), "%s", path);
 			ms_free(path);
 			return _factory_config_file;
@@ -332,9 +333,9 @@ static void linphone_gtk_configure_window(GtkWidget *w, const char *window_name)
 
 static int get_ui_file(const char *name, char *path, int pathsize){
 	snprintf(path,pathsize,"%s/%s.ui",BUILD_TREE_XML_DIR,name);
-	if (access(path,F_OK)!=0){
+	if (bctbx_file_exist(path)!=0){
 		snprintf(path,pathsize,"%s/%s.ui",INSTALLED_XML_DIR,name);
-		if (access(path,F_OK)!=0){
+		if (bctbx_file_exist(path)!=0){
 			g_error("Could not locate neither %s/%s.ui nor %s/%s.ui",BUILD_TREE_XML_DIR,name,
 				INSTALLED_XML_DIR,name);
 			return -1;
@@ -502,7 +503,7 @@ void linphone_gtk_show_about(void){
 		}
 		g_free(license);
 	}
-	gtk_about_dialog_set_version(GTK_ABOUT_DIALOG(about),LIBLINPHONE_GIT_VERSION);
+	gtk_about_dialog_set_version(GTK_ABOUT_DIALOG(about),linphone_core_get_version());
 	gtk_about_dialog_set_program_name(GTK_ABOUT_DIALOG(about),linphone_gtk_get_ui_config("title","Linphone"));
 	gtk_about_dialog_set_website(GTK_ABOUT_DIALOG(about),linphone_gtk_get_ui_config("home","http://www.linphone.org"));
 	if (logo) {
@@ -645,7 +646,7 @@ static void completion_add_text(GtkEntry *entry, const char *text){
 	save_uri_history();
 }
 
-void on_contact_provider_search_results( LinphoneContactSearch* req, MSList* friends, void* data )
+void on_contact_provider_search_results( LinphoneContactSearch* req, bctbx_list_t* friends, void* data )
 {
 	GtkTreeIter    iter;
 	GtkEntry*    uribar = GTK_ENTRY(data);
@@ -793,10 +794,10 @@ void linphone_gtk_call_terminated(LinphoneCall *call, const char *error){
 static void linphone_gtk_update_call_buttons(LinphoneCall *call){
 	LinphoneCore *lc=linphone_gtk_get_core();
 	GtkWidget *mw=linphone_gtk_get_main_window();
-	const MSList *calls=linphone_core_get_calls(lc);
+	const bctbx_list_t *calls=linphone_core_get_calls(lc);
 	GtkWidget *button;
 	bool_t add_call=(calls!=NULL);
-	int call_list_size=ms_list_size(calls);
+	int call_list_size=bctbx_list_size(calls);
 	GtkWidget *conf_frame;
 
 	button=linphone_gtk_get_widget(mw,"start_call");
@@ -816,7 +817,7 @@ static void linphone_gtk_update_call_buttons(LinphoneCall *call){
 	conf_frame=(GtkWidget *)g_object_get_data(G_OBJECT(mw),"conf_frame");
 	if(conf_frame==NULL){
 		linphone_gtk_enable_transfer_button(lc,call_list_size>1);
-		linphone_gtk_enable_conference_button(lc,call_list_size>0);
+		linphone_gtk_enable_conference_button(lc,call_list_size>1);
 	} else {
 		linphone_gtk_enable_transfer_button(lc,FALSE);
 		linphone_gtk_enable_conference_button(lc,FALSE);
@@ -1022,12 +1023,21 @@ void linphone_gtk_used_identity_changed(GtkWidget *w){
 
 void on_proxy_refresh_button_clicked(GtkWidget *w){
 	LinphoneCore *lc=linphone_gtk_get_core();
-	MSList const *item=linphone_core_get_proxy_config_list(lc);
-	while (item != NULL) {
-		LinphoneProxyConfig *lpc=(LinphoneProxyConfig*)item->data;
-		linphone_proxy_config_edit(lpc);
-		linphone_proxy_config_done(lpc);
-		item = item->next;
+	linphone_core_refresh_registers(lc);
+}
+
+static gboolean grab_focus(GtkWidget *w){
+	gtk_widget_grab_focus(w);
+	return FALSE;
+}
+
+void linphone_gtk_viewswitch_changed(GtkNotebook *notebook, GtkWidget *page, gint page_num, gpointer user_data){
+	GtkWidget *main_window = linphone_gtk_get_main_window();
+	GtkWidget *friendlist = linphone_gtk_get_widget(main_window,"contact_list");
+	GtkWidget *w = (GtkWidget*)g_object_get_data(G_OBJECT(friendlist),"chatview");
+
+	if (page_num == gtk_notebook_page_num(GTK_NOTEBOOK(notebook),w)) {
+		g_idle_add((GSourceFunc)grab_focus,linphone_gtk_get_widget(page,"text_entry"));
 	}
 }
 
@@ -1605,7 +1615,7 @@ static void init_identity_combo(GtkComboBox *box){
 }
 
 void linphone_gtk_load_identities(void){
-	const MSList *elem;
+	const bctbx_list_t *elem;
 	GtkComboBox *box=GTK_COMBO_BOX(linphone_gtk_get_widget(linphone_gtk_get_main_window(),"identities"));
 	char *def_identity;
 	LinphoneProxyConfig *def=NULL;
@@ -1627,7 +1637,7 @@ void linphone_gtk_load_identities(void){
 	g_free(def_identity);
 	for(i=1,elem=linphone_core_get_proxy_config_list(linphone_gtk_get_core());
 			elem!=NULL;
-			elem=ms_list_next(elem),i++){
+			elem=bctbx_list_next(elem),i++){
 		LinphoneProxyConfig *cfg=(LinphoneProxyConfig*)elem->data;
 		gtk_list_store_append(store,&iter);
 		gtk_list_store_set(store,&iter,0,linphone_proxy_config_get_identity(cfg),1,
@@ -1679,7 +1689,7 @@ static void linphone_gtk_check_menu_items(void){
 
 static gboolean linphone_gtk_can_manage_accounts(void){
 	LinphoneCore *lc=linphone_gtk_get_core();
-	const MSList *elem;
+	const bctbx_list_t *elem;
 	for(elem=linphone_core_get_sip_setups(lc);elem!=NULL;elem=elem->next){
 		SipSetup *ss=(SipSetup*)elem->data;
 		if (sip_setup_get_capabilities(ss) & SIP_SETUP_CAP_ACCOUNT_MANAGER){
@@ -1923,6 +1933,7 @@ static void linphone_gtk_init_main_window(void){
 		G_CALLBACK (linphone_gtk_close), main_window);
 #ifdef HAVE_GTK_OSX
 	{
+		gtk_widget_show(main_window);
 		GtkWidget *menubar=linphone_gtk_get_widget(main_window,"menubar1");
 		GtkosxApplication *theMacApp = gtkosx_application_get();
 		gtkosx_application_set_menu_bar(theMacApp,GTK_MENU_SHELL(menubar));
@@ -2175,7 +2186,7 @@ int main(int argc, char *argv[]){
 		return -1;
 	}
 	if(version) {
-		g_message("Linphone version %s.", LIBLINPHONE_GIT_VERSION);
+		g_message("Linphone version %s.", linphone_core_get_version());
 		return 0;
 	}
 
@@ -2248,6 +2259,7 @@ core_start:
 	the_ui=linphone_gtk_create_window("main", NULL);
 
 	g_object_set_data(G_OBJECT(the_ui),"is_created",GINT_TO_POINTER(FALSE));
+	g_signal_connect(G_OBJECT (the_ui), "key_press_event", G_CALLBACK (linphone_gtk_on_key_press), NULL);
 
 	linphone_gtk_create_log_window();
 	linphone_core_enable_logs_with_cb(linphone_gtk_log_handler);

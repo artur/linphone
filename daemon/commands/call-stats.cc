@@ -1,9 +1,28 @@
+/*
+call-stats.cc
+Copyright (C) 2016 Belledonne Communications, Grenoble, France 
+
+This library is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or (at
+your option) any later version.
+
+This library is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this library; if not, write to the Free Software Foundation,
+Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+*/
+
 #include "call-stats.h"
 
 using namespace std;
 
 CallStatsCommand::CallStatsCommand() :
-		DaemonCommand("call-stats", "call-stats <call id>", "Return all stats of a call.") {
+		DaemonCommand("call-stats", "call-stats [<call_id>]", "Return all stats of a call.") {
 	addExample(new DaemonCommandExample("call-stats 1",
 						"Status: Ok\n\n"
 						"Audio-ICE state: Not activated\n"
@@ -33,20 +52,22 @@ CallStatsCommand::CallStatsCommand() :
 						"Reason: No current call available."));
 }
 
-void CallStatsCommand::exec(Daemon *app, const char *args) {
+void CallStatsCommand::exec(Daemon *app, const string& args) {
 	LinphoneCore *lc = app->getCore();
 	int cid;
 	LinphoneCall *call = NULL;
-	if (sscanf(args, "%i", &cid) == 1) {
-		call = app->findCall(cid);
-		if (call == NULL) {
-			app->sendResponse(Response("No call with such id."));
-			return;
-		}
-	} else {
+	istringstream ist(args);
+	ist >> cid;
+	if (ist.fail()) {
 		call = linphone_core_get_current_call(lc);
 		if (call == NULL) {
 			app->sendResponse(Response("No current call available."));
+			return;
+		}
+	} else {
+		call = app->findCall(cid);
+		if (call == NULL) {
+			app->sendResponse(Response("No call with such id."));
 			return;
 		}
 	}
@@ -54,5 +75,5 @@ void CallStatsCommand::exec(Daemon *app, const char *args) {
 	ostringstream ostr;
 	ostr << CallStatsResponse(app, call, linphone_call_get_audio_stats(call), false).getBody();
 	ostr << CallStatsResponse(app, call, linphone_call_get_video_stats(call), false).getBody();
-	app->sendResponse(Response(ostr.str().c_str(), Response::Ok));
+	app->sendResponse(Response(ostr.str(), Response::Ok));
 }

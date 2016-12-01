@@ -15,7 +15,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "private.h"
@@ -29,7 +29,7 @@ void linphone_core_v_table_set_user_data(LinphoneCoreVTable *table, void *data) 
 	table->user_data = data;
 }
 
-void* linphone_core_v_table_get_user_data(LinphoneCoreVTable *table) {
+void* linphone_core_v_table_get_user_data(const LinphoneCoreVTable *table) {
 	return table->user_data;
 }
 
@@ -42,13 +42,15 @@ LinphoneCoreVTable *linphone_core_get_current_vtable(LinphoneCore *lc) {
 }
 
 static void cleanup_dead_vtable_refs(LinphoneCore *lc){
-	MSList *it,*next_it;
+	bctbx_list_t *it,*next_it;
+
+	if (lc->vtable_notify_recursion > 0) return; /*don't cleanup vtable if we are iterating through a listener list.*/
 	for(it=lc->vtable_refs; it!=NULL; ){
 		VTableReference *ref=(VTableReference*)it->data;
 		next_it=it->next;
 		if (ref->valid==0){
 			ref->valid=0;
-			lc->vtable_refs=ms_list_remove_link(lc->vtable_refs, it);
+			lc->vtable_refs=bctbx_list_erase_link(lc->vtable_refs, it);
 			ms_free(ref);
 		}
 		it=next_it;
@@ -56,26 +58,29 @@ static void cleanup_dead_vtable_refs(LinphoneCore *lc){
 }
 
 #define NOTIFY_IF_EXIST(function_name, ...) \
-	MSList* iterator; \
+	bctbx_list_t* iterator; \
 	VTableReference *ref; \
 	bool_t has_cb = FALSE; \
-	for (iterator=lc->vtable_refs; iterator!=NULL; iterator=iterator->next)\
+	lc->vtable_notify_recursion++;\
+	for (iterator=lc->vtable_refs; iterator!=NULL; iterator=iterator->next){\
 		if ((ref=(VTableReference*)iterator->data)->valid && (lc->current_vtable=ref->vtable)->function_name) {\
 			lc->current_vtable->function_name(__VA_ARGS__);\
 			has_cb = TRUE;\
 		}\
-	if (has_cb) ms_message("Linphone core [%p] notifying [%s]",lc,#function_name)
+	}\
+	lc->vtable_notify_recursion--;\
+	if (has_cb) ms_message("Linphone core [%p] notified [%s]",lc,#function_name)
 
 #define NOTIFY_IF_EXIST_INTERNAL(function_name, internal_val, ...) \
-	MSList* iterator; \
+	bctbx_list_t* iterator; \
 	VTableReference *ref; \
-	bool_t has_cb = FALSE; \
-	for (iterator=lc->vtable_refs; iterator!=NULL; iterator=iterator->next)\
+	lc->vtable_notify_recursion++;\
+	for (iterator=lc->vtable_refs; iterator!=NULL; iterator=iterator->next){\
 		if ((ref=(VTableReference*)iterator->data)->valid && (lc->current_vtable=ref->vtable)->function_name && (ref->internal == internal_val)) {\
 			lc->current_vtable->function_name(__VA_ARGS__);\
-			has_cb = TRUE;\
 		}\
-	if (has_cb) ms_message("Linphone core [%p] notifying [%s]",lc,#function_name)
+	}\
+	lc->vtable_notify_recursion--;
 
 void linphone_core_notify_global_state_changed(LinphoneCore *lc, LinphoneGlobalState gstate, const char *message) {
 	NOTIFY_IF_EXIST(global_state_changed,lc,gstate,message);
@@ -99,7 +104,11 @@ void linphone_core_notify_registration_state_changed(LinphoneCore *lc, LinphoneP
 #if __clang__ || ((__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || __GNUC__ > 4)
 #pragma GCC diagnostic push
 #endif
+#ifdef _MSC_VER
+#pragma warning(disable : 4996)
+#else
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 void linphone_core_notify_show_interface(LinphoneCore *lc){
 	NOTIFY_IF_EXIST(show, lc);
 	cleanup_dead_vtable_refs(lc);
@@ -127,29 +136,44 @@ void linphone_core_notify_display_url(LinphoneCore *lc, const char *message, con
 #if __clang__ || ((__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || __GNUC__ > 4)
 #pragma GCC diagnostic pop
 #endif
-void linphone_core_notify_notify_presence_received(LinphoneCore *lc, LinphoneFriend * lf){
-	NOTIFY_IF_EXIST(notify_presence_received, lc,lf);
+void linphone_core_notify_notify_presence_received(LinphoneCore *lc, LinphoneFriend * lf) {
+	NOTIFY_IF_EXIST(notify_presence_received, lc, lf);
 	cleanup_dead_vtable_refs(lc);
 }
 
-void linphone_core_notify_new_subscription_requested(LinphoneCore *lc, LinphoneFriend *lf, const char *url){
-	NOTIFY_IF_EXIST(new_subscription_requested, lc,lf,url);
+void linphone_core_notify_notify_presence_received_for_uri_or_tel(LinphoneCore *lc, LinphoneFriend *lf, const char *uri_or_tel, const LinphonePresenceModel *presence_model) {
+	NOTIFY_IF_EXIST(notify_presence_received_for_uri_or_tel, lc, lf, uri_or_tel, presence_model);
 	cleanup_dead_vtable_refs(lc);
 }
 
-void linphone_core_notify_auth_info_requested(LinphoneCore *lc, const char *realm, const char *username, const char *domain){
-	NOTIFY_IF_EXIST(auth_info_requested, lc,realm,username,domain);
+void linphone_core_notify_new_subscription_requested(LinphoneCore *lc, LinphoneFriend *lf, const char *url) {
+	NOTIFY_IF_EXIST(new_subscription_requested, lc, lf, url);
 	cleanup_dead_vtable_refs(lc);
 }
 
-void linphone_core_notify_call_log_updated(LinphoneCore *lc, LinphoneCallLog *newcl){
-	NOTIFY_IF_EXIST(call_log_updated, lc,newcl);
+
+void linphone_core_notify_authentication_requested(LinphoneCore *lc, LinphoneAuthInfo *ai, LinphoneAuthMethod method) {
+	NOTIFY_IF_EXIST(authentication_requested, lc, ai, method);
+	cleanup_dead_vtable_refs(lc);
+}
+
+void linphone_core_notify_call_log_updated(LinphoneCore *lc, LinphoneCallLog *newcl) {
+	NOTIFY_IF_EXIST(call_log_updated, lc, newcl);
 	cleanup_dead_vtable_refs(lc);
 }
 #if __clang__ || ((__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || __GNUC__ > 4)
 #pragma GCC diagnostic push
 #endif
+#ifdef _MSC_VER
+#pragma warning(disable : 4996)
+#else
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
+void linphone_core_notify_auth_info_requested(LinphoneCore *lc, const char *realm, const char *username, const char *domain) {
+	NOTIFY_IF_EXIST(auth_info_requested, lc, realm, username, domain);
+	cleanup_dead_vtable_refs(lc);
+}
 
 void linphone_core_notify_text_message_received(LinphoneCore *lc, LinphoneChatRoom *room, const LinphoneAddress *from, const char *message){
 	NOTIFY_IF_EXIST(text_received, lc,room,from,message);
@@ -166,7 +190,11 @@ void linphone_core_notify_message_received(LinphoneCore *lc, LinphoneChatRoom *r
 #if __clang__ || ((__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || __GNUC__ > 4)
 #pragma GCC diagnostic push
 #endif
+#ifdef _MSC_VER
+#pragma warning(disable : 4996)
+#else
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 void linphone_core_notify_file_transfer_recv(LinphoneCore *lc, LinphoneChatMessage *message, const LinphoneContent* content, const char* buff, size_t size) {
 	NOTIFY_IF_EXIST(file_transfer_recv, lc,message,content,buff,size);
 	cleanup_dead_vtable_refs(lc);
@@ -195,7 +223,7 @@ void linphone_core_notify_dtmf_received(LinphoneCore* lc, LinphoneCall *call, in
 }
 
 bool_t linphone_core_dtmf_received_has_listener(const LinphoneCore* lc) {
-	MSList* iterator;
+	bctbx_list_t* iterator;
 	for (iterator=lc->vtable_refs; iterator!=NULL; iterator=iterator->next){
 		VTableReference *ref=(VTableReference*)iterator->data;
 		if (ref->valid && ref->vtable->dtmf_received)
@@ -290,7 +318,7 @@ void v_table_reference_destroy(VTableReference *ref){
 
 void _linphone_core_add_listener(LinphoneCore *lc, LinphoneCoreVTable *vtable, bool_t autorelease, bool_t internal) {
 	ms_message("Vtable [%p] registered on core [%p]",vtable, lc);
-	lc->vtable_refs=ms_list_append(lc->vtable_refs,v_table_reference_new(vtable, autorelease, internal));
+	lc->vtable_refs=bctbx_list_append(lc->vtable_refs,v_table_reference_new(vtable, autorelease, internal));
 }
 
 void linphone_core_add_listener(LinphoneCore *lc, LinphoneCoreVTable *vtable){
@@ -298,8 +326,8 @@ void linphone_core_add_listener(LinphoneCore *lc, LinphoneCoreVTable *vtable){
 }
 
 void linphone_core_remove_listener(LinphoneCore *lc, const LinphoneCoreVTable *vtable) {
-	MSList *it;
-	ms_message("Vtable [%p] unregistered on core [%p]",lc,vtable);
+	bctbx_list_t *it;
+	ms_message("Vtable [%p] unregistered on core [%p]",vtable,lc);
 	for(it=lc->vtable_refs; it!=NULL; it=it->next){
 		VTableReference *ref=(VTableReference*)it->data;
 		if (ref->vtable==vtable)

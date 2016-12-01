@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([linphone],[3.9.1],[linphone-developers@nongnu.org])
+AC_INIT([linphone],[3.10.2],[linphone-developers@nongnu.org])
 AC_CANONICAL_SYSTEM
 AC_CONFIG_SRCDIR([coreapi/linphonecore.c])
 
@@ -157,6 +157,11 @@ GETTEXT_PACKAGE=linphone
 AC_SUBST([GETTEXT_PACKAGE])
 AC_DEFINE_UNQUOTED(GETTEXT_PACKAGE,"$GETTEXT_PACKAGE",[The name of the gettext package name])
 dnl AC_CHECK_LIB(intl,libintl_gettext)
+
+PKG_CHECK_MODULES(BCTOOLBOX, bctoolbox, [found_bctoolbox=yes],[found_bctoolbox=no])
+if test "x$found_bctoolbox" != "xyes" ; then
+	AC_MSG_ERROR(["Could not find bctoolbox (required dependency)"])
+fi
 
 AC_CHECK_FUNCS([get_current_dir_name strndup stpcpy] )
 
@@ -771,12 +776,15 @@ AC_ARG_ENABLE(strict,
 )
 
 STRICT_OPTIONS="-Wall -Wuninitialized"
-STRICT_OPTIONS_CC="-Wdeclaration-after-statement -Wstrict-prototypes"
+STRICT_OPTIONS_CC="-Wstrict-prototypes"
 STRICT_OPTIONS_CXX=""
 
 #for clang
 
 case $CC in
+	*gcc*)
+		STRICT_OPTIONS="$STRICT_OPTIONS -fno-inline-small-functions"
+	;;
 	*clang*)
 		STRICT_OPTIONS="$STRICT_OPTIONS -Qunused-arguments "
 		#disabled due to wrong optimization false positive with small string
@@ -794,7 +802,7 @@ case "$target_os" in
 	;;
 esac
 if test "$strictness" = "yes" ; then
-	STRICT_OPTIONS="$STRICT_OPTIONS -Werror -Wno-error=deprecated-declarations -Wno-error=strict-prototypes"
+	STRICT_OPTIONS="$STRICT_OPTIONS -Werror -Wextra -Wno-unused-parameter -Wno-error=deprecated-declarations -Wno-error=strict-prototypes -Wno-missing-field-initializers"
 	CFLAGS="$CFLAGS -fno-strict-aliasing"
 fi
 
@@ -876,7 +884,7 @@ AC_ARG_ENABLE(tunnel,
 )
 AM_CONDITIONAL(BUILD_TUNNEL, test x$enable_tunnel = xtrue)
 if test x$enable_tunnel = xtrue; then
-	PKG_CHECK_MODULES(TUNNEL, tunnel >= 0.3.3)
+	PKG_CHECK_MODULES(TUNNEL, tunnel >= 0.6.0)
 	AC_DEFINE(TUNNEL_ENABLED,1,[Tells tunnel extension is built-in])
 fi
 
@@ -935,12 +943,12 @@ if test x$enable_sqlite_storage != xfalse; then
 		if test "$build_macos" = "yes" -o "$ios_found" = "yes"; then
 			SQLITE3_LIBS+=" -liconv"
 		fi
-		enable_msg_storage=true
+		enable_sqlite_storage=true
 	else
 		if test x$enable_sqlite_storage = xtrue; then
 			AC_MSG_ERROR([sqlite3, required for storage, not found])
 		fi
-		enable_msg_storage=false
+		enable_sqlite_storage=false
 	fi
 
 	AC_SUBST(SQLITE3_CFLAGS)
@@ -1045,6 +1053,7 @@ AC_CONFIG_FILES([
 	po/Makefile.in
 	pixmaps/Makefile
 	include/Makefile
+	include/linphone/Makefile
 	coreapi/Makefile
 	coreapi/help/Makefile
 	coreapi/help/Doxyfile

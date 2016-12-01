@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #ifndef SAL_IMPL_H_
@@ -37,6 +37,7 @@ struct Sal{
 	int session_expires;
 	unsigned int keep_alive;
 	char *root_ca;
+	char *root_ca_data;
 	char *uuid;
 	int refresher_retry_after; /*retry after value for refresher*/
 	MSList *supported_tags;/*list of char * */
@@ -129,6 +130,7 @@ SalOp* sal_op_ref(SalOp* op);
 void* sal_op_unref(SalOp* op);
 void sal_op_release_impl(SalOp *op);
 
+void sal_op_set_replaces(SalOp* op,belle_sip_header_replaces_t* replaces);
 void sal_op_set_remote_ua(SalOp*op,belle_sip_message_t* message);
 int sal_op_send_request(SalOp* op, belle_sip_request_t* request);
 int sal_op_send_request_with_expires(SalOp* op, belle_sip_request_t* request,int expires);

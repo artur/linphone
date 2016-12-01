@@ -1,10 +1,30 @@
+/*
+daemon.h
+Copyright (C) 2016 Belledonne Communications, Grenoble, France 
+
+This library is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or (at
+your option) any later version.
+
+This library is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this library; if not, write to the Free Software Foundation,
+Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+*/
+
 #ifndef DAEMON_H_
 #define DAEMON_H_
 
-#include <linphonecore.h>
-#include <linphonecore_utils.h>
+#include <linphone/core.h>
+#include <linphone/core_utils.h>
 #include <mediastreamer2/mediastream.h>
 #include <mediastreamer2/mscommon.h>
+#include <bctoolbox/list.h>
 
 #include <string>
 #include <list>
@@ -38,7 +58,7 @@ class Daemon;
 
 class DaemonCommandExample {
 public:
-	DaemonCommandExample(const char *command, const char *output);
+	DaemonCommandExample(const std::string& command, const std::string& output);
 	~DaemonCommandExample() {}
 	const std::string &getCommand() const {
 		return mCommand;
@@ -54,8 +74,8 @@ private:
 class DaemonCommand {
 public:
 	virtual ~DaemonCommand() {}
-	virtual void exec(Daemon *app, const char *args)=0;
-	bool matches(const char *name) const;
+	virtual void exec(Daemon *app, const std::string& args)=0;
+	bool matches(const std::string& name) const;
 	const std::string getHelp() const;
 	const std::string &getProto() const {
 		return mProto;
@@ -68,7 +88,7 @@ public:
 	}
 	void addExample(const DaemonCommandExample *example);
 protected:
-	DaemonCommand(const char *name, const char *proto, const char *description);
+	DaemonCommand(const std::string& name, const std::string& proto, const std::string& description);
 	const std::string mName;
 	const std::string mProto;
 	const std::string mDescription;
@@ -85,14 +105,6 @@ public:
 	Response() :
 			mStatus(Ok) {
 	}
-	Response(const char *msg, Status status = Error) :
-			mStatus(status) {
-		if (status == Ok) {
-			mBody = msg;
-		} else {
-			mReason = msg;
-		}
-	}
 	Response(const std::string& msg, Status status = Error):
 		mStatus(status) {
 		if( status == Ok) {
@@ -105,25 +117,26 @@ public:
 	void setStatus(Status st) {
 		mStatus = st;
 	}
-	void setReason(const char *reason) {
+	void setReason(const std::string& reason) {
 		mReason = reason;
 	}
-	void setBody(const char *body) {
+	void setBody(const std::string& body) {
 		mBody = body;
 	}
 	const std::string &getBody() const {
 		return mBody;
 	}
-	virtual int toBuf(char *dst, int dstlen) const {
-		int i = 0;
-		i += snprintf(dst + i, dstlen - i, "Status: %s\n", mStatus == Ok ? "Ok" : "Error");
-		if (mReason.size() > 0) {
-			i += snprintf(dst + i, dstlen - i, "Reason: %s\n", mReason.c_str());
+	virtual std::string toBuf() const {
+		std::ostringstream buf;
+		std::string status = (mStatus == Ok) ? "Ok" : "Error";
+		buf << "Status: " << status << "\n";
+		if (!mReason.empty()) {
+			buf << "Reason: " << mReason << "\n";
 		}
-		if (mBody.size() > 0) {
-			i += snprintf(dst + i, dstlen - i, "\n%s\n", mBody.c_str());
+		if (!mBody.empty()) {
+			buf << "\n" << mBody << "\n";
 		}
-		return i;
+		return buf.str();
 	}
 private:
 	Status mStatus;
@@ -212,7 +225,7 @@ public:
 	int updateCallId(LinphoneCall *call);
 	int updateProxyId(LinphoneProxyConfig *proxy);
 	inline int maxProxyId() { return mProxyIds; }
-	inline int maxAuthInfoId()  { return ms_list_size(linphone_core_get_auth_info_list(mLc)); }
+	inline int maxAuthInfoId()  { return bctbx_list_size(linphone_core_get_auth_info_list(mLc)); }
 	int updateAudioStreamId(AudioStream *audio_stream);
 	void dumpCommandsHelp();
 	void dumpCommandsHelpHtml();
@@ -230,22 +243,21 @@ private:
 	void callStateChanged(LinphoneCall *call, LinphoneCallState state, const char *msg);
 	void callStatsUpdated(LinphoneCall *call, const LinphoneCallStats *stats);
 	void dtmfReceived(LinphoneCall *call, int dtmf);
-	void execCommand(const char *cl);
-	char *readLine(const char *, bool*);
-	char *readPipe(char *buffer, int buflen);
+	void execCommand(const std::string &command);
+	std::string readLine(const std::string&, bool*);
+	std::string readPipe();
 	void iterate();
 	void iterateStreamStats();
 	void startThread();
 	void stopThread();
 	void initCommands();
 	void uninitCommands();
-	void iterateStreamStats(LinphoneCore *lc);
 	LinphoneCore *mLc;
 	LinphoneSoundDaemon *mLSD;
 	std::list<DaemonCommand*> mCommands;
 	std::queue<Response*> mEventQueue;
-	int mServerFd;
-	int mChildFd;
+	ortp_pipe_t mServerFd;
+	ortp_pipe_t mChildFd;
 	std::string mHistfile;
 	bool mRunning;
 	bool mUseStatsEvents;
@@ -256,7 +268,6 @@ private:
 	int mAudioStreamIds;
 	ms_thread_t mThread;
 	ms_mutex_t mMutex;
-	static const int sLineSize = 512;
 	std::map<int, AudioStreamAndOther*> mAudioStreams;
 };
 

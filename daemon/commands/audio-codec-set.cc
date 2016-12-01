@@ -1,3 +1,22 @@
+/*
+audio-codec-set.cc
+Copyright (C) 2016 Belledonne Communications, Grenoble, France 
+
+This library is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or (at
+your option) any later version.
+
+This library is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this library; if not, write to the Free Software Foundation,
+Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+*/
+
 #include "audio-codec-set.h"
 
 #include "private.h"
@@ -9,7 +28,7 @@
 using namespace std;
 
 AudioCodecSetCommand::AudioCodecSetCommand() :
-		DaemonCommand("audio-codec-set", "audio-codec-set <payload_type_number|mime_type> <property> <value>",
+		DaemonCommand("audio-codec-set", "audio-codec-set <payload_type_number>|<mime_type> <property> <value>",
 				"Set a property (number, clock_rate, recv_fmtp, send_fmtp, bitrate (in kbps/s)) of a codec. Numbering of payload type is automatically performed at startup, any change will be lost after restart.\n"
 				"<mime_type> is of the form mime/rate/channels, eg. speex/16000/1") {
 	addExample(new DaemonCommandExample("audio-codec-set 9 number 18",
@@ -49,7 +68,7 @@ AudioCodecSetCommand::AudioCodecSetCommand() :
 
 static PayloadType *findPayload(LinphoneCore *lc, int payload_type, int *index){
 	if (index) *index=0;
-	for (const MSList *node = linphone_core_get_audio_codecs(lc); node != NULL; node = ms_list_next(node)) {
+	for (const bctbx_list_t *node = linphone_core_get_audio_codecs(lc); node != NULL; node = bctbx_list_next(node)) {
 		PayloadType *payload = reinterpret_cast<PayloadType*>(node->data);
 		if (index) (*index)++;
 		if (payload_type == linphone_core_get_payload_type_number(lc, payload)) {
@@ -59,7 +78,7 @@ static PayloadType *findPayload(LinphoneCore *lc, int payload_type, int *index){
 	return NULL;
 }
 
-void AudioCodecSetCommand::exec(Daemon *app, const char *args) {
+void AudioCodecSetCommand::exec(Daemon *app, const string& args) {
 	istringstream ist(args);
 
 	if (ist.peek() == EOF) {

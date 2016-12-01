@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package org.linphone.core;
 
@@ -27,7 +27,7 @@ import org.linphone.mediastream.video.capture.hwconf.AndroidCameraConfiguration;
 import android.view.SurfaceView;
 
 /**
- * Linphone core main object created by method {@link LinphoneCoreFactory#createLinphoneCore(LinphoneCoreListener, String, String, Object)}.
+ * Linphone core main object created by method {@link LinphoneCoreFactory#createLinphoneCore(LinphoneCoreListener, String, String, Object, Object)}.
  *
  */
 
@@ -170,8 +170,9 @@ public interface LinphoneCore {
 	}
 	/**
 	 * Describes firewall policy.
-	 *
+	 * @deprecated
 	 */
+	@Deprecated
 	static public class FirewallPolicy {
 
 		static private Vector<FirewallPolicy> values = new Vector<FirewallPolicy>();
@@ -224,7 +225,6 @@ public interface LinphoneCore {
 	/**
 	 * Linphone core SIP transport ports.
 	 * Use with {@link LinphoneCore#setSignalingTransportPorts(Transports)}
-	 * @ingroup initializing
 	 */
 	static public class Transports {
 		/**
@@ -561,6 +561,76 @@ public interface LinphoneCore {
 			return mStringValue;
 		}
 	}
+	static public final class LinphoneLimeState {
+
+		static private Vector<LinphoneLimeState> values = new Vector<LinphoneLimeState>();
+		/**
+		 * Disabled
+		 */
+		static public final LinphoneLimeState Disabled = new LinphoneLimeState(0, "None");
+		/**
+		 * Mandatory
+		 */
+		static public final LinphoneLimeState Mandatory = new LinphoneLimeState(1,"Mandatory");
+		/**
+		 * Preferred
+		 */
+		static public final LinphoneLimeState Preferred = new LinphoneLimeState(2,"Preferred");
+		protected final int mValue;
+		private final String mStringValue;
+
+
+		private LinphoneLimeState(int value, String stringValue) {
+			mValue = value;
+			values.addElement(this);
+			mStringValue = stringValue;
+		}
+		public static LinphoneLimeState fromInt(int value) {
+
+			for (int i=0; i<values.size();i++) {
+				LinphoneLimeState menc = (LinphoneLimeState) values.elementAt(i);
+				if (menc.mValue == value) return menc;
+			}
+			throw new RuntimeException("LinphoneLimeState not found ["+value+"]");
+		}
+		public String toString() {
+			return mStringValue;
+		}
+	}
+	/**
+	 * linphone authentication methods
+	 */
+	static public class AuthMethod {
+		static private Vector<AuthMethod> values = new Vector<AuthMethod>();
+		/**
+		 * HTTP Digest
+		 */
+		static public AuthMethod AuthMethodHttpDigest = new AuthMethod(0, "AuthMethodHttpDigest");
+		/**
+		 * TLS
+		 */
+		static public AuthMethod AuthMethodTls = new AuthMethod(1, "AuthMethodTls");
+
+		private final int mValue;
+		private final String mStringValue;
+
+		private AuthMethod(int value,String stringValue) {
+			mValue = value;
+			values.addElement(this);
+			mStringValue=stringValue;
+		}
+		public static AuthMethod fromInt(int value) {
+
+			for (int i=0; i<values.size();i++) {
+				AuthMethod state = (AuthMethod) values.elementAt(i);
+				if (state.mValue == value) return state;
+			}
+			throw new RuntimeException("auth method not found ["+value+"]");
+		}
+		public String toString() {
+			return mStringValue;
+		}
+	}
 
 	/**
 	 * Set the context of creation of the LinphoneCore.
@@ -591,7 +661,6 @@ public interface LinphoneCore {
 
 	/**
 	 * Sets the default proxy.
-	 *<br>
 	 * This default proxy must be part of the list of already entered {@link LinphoneProxyConfig}.
 	 * Toggling it as default will make LinphoneCore favor the identity associated with the proxy configuration in all incoming and outgoing calls.
 	 * Better proxy configuration match may override this choice. Pass null to unset the default proxy.
@@ -626,7 +695,7 @@ public interface LinphoneCore {
 	void clearAuthInfos();
 	/**
 	 * Adds authentication information to the LinphoneCore.
-	 * <br>This information will be used during all SIP transacations that require authentication.
+	 * This information will be used during all SIP transacations that require authentication.
 	 * @param info
 	 */
 	void addAuthInfo(LinphoneAuthInfo info);
@@ -635,18 +704,18 @@ public interface LinphoneCore {
 	 * Build an address according to the current proxy config. In case destination is not a sip address, the default proxy domain is automatically appended
 	 * @param destination
 	 * @return
-	 * @throws If no LinphoneAddress can be built from destination
+	 * @throws LinphoneCoreException if no LinphoneAddress can be built from destination
 	 */
 	public LinphoneAddress interpretUrl(String destination) throws LinphoneCoreException;
 
 	/**
 	 * Starts a call given a destination. Internally calls {@link #interpretUrl(String)} then {@link #invite(LinphoneAddress)}.
-	 * @param uri
+	 * @param destination
 	 */
 	public LinphoneCall invite(String destination)throws LinphoneCoreException;
 	/**
 	 * Initiates an outgoing call given a destination LinphoneAddress
-	 *<br>The LinphoneAddress can be constructed directly using {@link LinphoneCoreFactory#createLinphoneAddress} , or created {@link LinphoneCore#interpretUrl(String)}. .
+	 * The LinphoneAddress can be constructed directly using {@link LinphoneCoreFactory#createLinphoneAddress} , or created {@link LinphoneCore#interpretUrl(String)}. .
 	 * @param to the destination of the call (sip address).
 	 * @return linphone call
 	 * @throws LinphoneCoreException if linphone call cannot be created
@@ -686,12 +755,13 @@ public interface LinphoneCore {
 	public boolean isInComingInvitePending();
 	/**
 	 * Main loop function. It is crucial that your application call it periodically.
-	 *
-	 *	#iterate() performs various backgrounds tasks:
-	 * <li>receiving of SIP messages
-	 * <li> handles timers and timeout
-	 * <li> performs registration to proxies
-	 * <li> authentication retries The application MUST call this function from periodically, in its main loop.
+	 * #iterate() performs various backgrounds tasks:
+	 * <ul>
+	 *  <li>receiving of SIP messages</li>
+	 *  <li> handles timers and timeout</li>
+	 *  <li> performs registration to proxies</li>
+	 *  <li> authentication retries The application MUST call this function from periodically, in its main loop.</li>
+	 * </ul>
 	 * <br> Be careful that this function must be call from the same thread as other liblinphone methods. In not the case make sure all liblinphone calls are serialized with a mutex.
 
 	 */
@@ -771,7 +841,7 @@ public interface LinphoneCore {
 	public void destroy();
 	/**
 	 * Allow to control play level before entering  sound card:
-	 * @param level in db
+	 * @param gain in db
 	 */
 	public void setPlaybackGain(float gain);
 	/**
@@ -801,6 +871,11 @@ public interface LinphoneCore {
 	 */
 	boolean isMicMuted();
 
+	/**
+	 * Initiate dtmf if in call
+	 * @param dtmf send dtmf
+	 */
+	void sendDtmfs(String dtmf);
 	/**
 	 * Initiate a dtmf signal if in call
 	 * @param number send dtmf ['0'..'9'] | '#', '*'
@@ -949,7 +1024,7 @@ public interface LinphoneCore {
 	boolean isEchoLimiterEnabled();
 	/**
 	 * Set transport ports linphone core will listen on
-	 * @param local transports ports used for signaling (TCP, UDP and TLS)
+	 * @param transports transports ports used for signaling (TCP, UDP and TLS)
 	 */
 	void setSignalingTransportPorts(Transports transports);
 	/**Get
@@ -967,13 +1042,12 @@ public interface LinphoneCore {
 	/**
 	 * Set the timeout in milliseconds for SIP transport (TCP or TLS connection establishment maximum time).
 	 * @param timeout_ms
-	**/
+	 */
 	void setSipTransportTimeout(int timeout_ms);
 
 	/**
 	 * Get the current SIP transport timeout.
-	 * @param timeout_ms
-	**/
+	 */
 	int getSipTransportTimeout();
 
 	/**
@@ -998,17 +1072,17 @@ public interface LinphoneCore {
 	 * @throws LinphoneCoreException
 	 */
 	void addFriend(LinphoneFriend lf) throws LinphoneCoreException;
-	
+
 	/**
 	 * Adds the friend list to the linphone core.
 	 */
 	void addFriendList(LinphoneFriendList friendList) throws LinphoneCoreException;
-	
+
 	/**
 	 * Removes the friend list from the linphone core.
 	 */
 	void removeFriendList(LinphoneFriendList friendList) throws LinphoneCoreException;
-	
+
 	/**
 	 * Creates a friend list.
 	 */
@@ -1027,26 +1101,28 @@ public interface LinphoneCore {
 	LinphoneFriendList[] getFriendLists();
 
 	/**
-	 * @brief Set my presence status
+	 * Set my presence status
 	 * @param minutes_away how long in away
 	 * @param alternative_contact sip uri used to redirect call in state LinphoneStatusMoved
 	 * @param status OnlineStatus
 	 * @deprecated Use setPresenceModel() instead
 	 */
+	@Deprecated
 	void setPresenceInfo(int minutes_away, String alternative_contact, OnlineStatus status);
 	/**
-	 * @brief Get my presence status
+	 * Get my presence status
 	 * @return OnlineStatus
 	 * @deprecated Use getPresenceModel() instead
 	 */
+	@Deprecated
 	OnlineStatus getPresenceInfo();
 	/**
-	 * @brief Set my presence status
+	 * Set my presence status
 	 * @param presence #LinphonePresenceModel
 	 */
 	void setPresenceModel(PresenceModel presence);
 	/**
-	 * @brief Get my presence status
+	 * Get my presence status
 	 * @return A #PresenceModel object, or null if no presence model has been set.
 	 */
 	PresenceModel getPresenceModel();
@@ -1067,41 +1143,44 @@ public interface LinphoneCore {
 	/**
 	 * Set the native video window id where the video is to be displayed.
 	 * On Android, it must be of type {@link AndroidVideoWindowImpl}
-	 * @param video window of type {@link AndroidVideoWindowImpl}
-	**/
+	 * @param w window of type {@link AndroidVideoWindowImpl}
+	 */
 	void setVideoWindow(Object w);
 	/**
 	 * Set the native video window id where the video preview is to be displayed.
-	 * On Android, it must of type {@link SurfaceView}
-	 * @param video window of type {@link SurfaceView}
-	**/
+	 * On Android, it must of type android.view.SurfaceView
+	 * @param w window of type android.view.SurfaceView
+	 */
 	void setPreviewWindow(Object w);
 	/**
 	 * Tells the core the device current orientation. This can be used by capture filters
 	 * on mobile devices to select between portrait/landscape mode and to produce properly
 	 * oriented images. The exact meaning of the value in rotation if left to each device
 	 * specific implementations.
-	 *@param rotation . Android supported values are 0, 90, 180 and 270.
-	 *
-	**/
+	 * @param rotation Android supported values are 0, 90, 180 and 270.
+	 */
 	void setDeviceRotation(int rotation);
 	/**
 	 * Sets the active video device.
 	 *
 	 * @param id  of the video device as returned by {@link AndroidCameraConfiguration#retrieveCameras}
-	**/
+	 */
 	void setVideoDevice(int id);
 	/**
 	 * Returns the id of the currently active video device as found in {@link AndroidCameraConfiguration#retrieveCameras}.
-	**/
+	 */
 	int getVideoDevice();
 
 
 	/**
-	 * Teturns true if the underlying sdk support video
-	 *
-	 * */
+	 * Returns true if the underlying sdk support video
+	 */
 	boolean isVideoSupported();
+
+	/**
+	 * Returns true if the underlying sdk support vCards
+	 */
+	boolean isVCardSupported();
 
 	/**
 	 * Enables video globally.
@@ -1114,12 +1193,13 @@ public interface LinphoneCore {
 	 * @param vcap_enabled indicates whether video capture is enabled
 	 * @param display_enabled indicates whether video display should be shown
 	 *
-	**/
+	 */
 	void enableVideo(boolean vcap_enabled, boolean display_enabled);
+
 	/**
 	 * Returns TRUE if video is enabled, FALSE otherwise.
 	 *
-	 ***/
+	 */
 	boolean isVideoEnabled();
 
 	/**
@@ -1127,6 +1207,7 @@ public interface LinphoneCore {
 	 * @param stun_server Stun server address and port, such as stun.linphone.org or stun.linphone.org:3478
 	 */
 	void setStunServer(String stun_server);
+
 	/**
 	 * Get STUN server
 	 * @return stun server address if previously set.
@@ -1136,29 +1217,56 @@ public interface LinphoneCore {
 	/**
 	 * Sets policy regarding workarounding NATs
 	 * @param pol one of the FirewallPolicy members.
-	**/
+	 * @deprecated
+	 */
+	@Deprecated
 	void setFirewallPolicy(FirewallPolicy pol);
+
 	/**
 	 * @return previously set firewall policy.
+	 * @deprecated
 	 */
+	@Deprecated
 	FirewallPolicy getFirewallPolicy();
+
+	/**
+	 * Create a new LinphoneNatPolicy object with every policies being disabled.
+	 * @return A new LinphoneNatPolicy object.
+	 */
+	LinphoneNatPolicy createNatPolicy();
+
+	/**
+	 * Set the policy to use to pass through NATs/firewalls.
+	 * It may be overridden by a NAT policy for a specific proxy config.
+	 * @param policy LinphoneNatPolicy object
+	 */
+	void setNatPolicy(LinphoneNatPolicy policy);
+
+	/**
+	 * Get The policy that is used to pass through NATs/firewalls.
+	 * It may be overridden by a NAT policy for a specific proxy config.
+	 * @return LinphoneNatPolicy object in use.
+	 */
+	LinphoneNatPolicy getNatPolicy();
+
 	/**
 	 * Initiates an outgoing call given a destination LinphoneAddress
 	 *
-	 * @param addr the destination of the call {@link #LinphoneAddress }.
-	 * @param params call parameters {@link #LinphoneCallParams }
+	 * @param destination the destination of the call {@link LinphoneAddress}.
+	 * @param params call parameters {@link LinphoneCallParams}
 	 *
-	 *<br>The LinphoneAddress can be constructed directly using {@link LinphoneCoreFactory#createLinphoneAddress} , or created {@link LinphoneCore#interpretUrl(String)}. .
+	 * <br>The LinphoneAddress can be constructed directly using {@link LinphoneCoreFactory#createLinphoneAddress} , or created {@link LinphoneCore#interpretUrl(String)}.
 	 *
-	 * @return a {@link #LinphoneCall LinphoneCall} object
+	 * @return a {@link LinphoneCall} object
 	 * @throws LinphoneCoreException  in case of failure
 	**/
-	LinphoneCall inviteAddressWithParams(LinphoneAddress destination, LinphoneCallParams params) throws LinphoneCoreException ;
+	LinphoneCall inviteAddressWithParams(LinphoneAddress destination, LinphoneCallParams params) throws LinphoneCoreException;
+
 	/**
 	 * Updates a running call according to supplied call parameters or parameters changed in the LinphoneCore.
 	 *
 	 * In this version this is limited to the following use cases:
-	 * - setting up/down the video stream according to the video parameter of the {@link LinphoneCallParams} (see {@link LinphoneCallParams#enableVideo} ).
+	 * - setting up/down the video stream according to the video parameter of the {@link LinphoneCallParams} (see {@link LinphoneCallParams#setVideoEnabled(boolean)} ).
 	 * - changing the size of the transmitted video after calling {@link LinphoneCore#setPreferredVideoSize(VideoSize)}
 	 *
 	 * In case no changes are requested through the {@link LinphoneCallParams} argument, then this argument can be omitted and set to null.
@@ -1171,13 +1279,13 @@ public interface LinphoneCore {
 	/**
 	 * Create a LinphoneCallParams suitable to be used for a new incoming call or an established call, in
 	 * methods LinphoneCore.inviteAddressWithParams(), LinphoneCore.updateCall(), LinphoneCore.acceptCallWithParams(), LinphoneCore.acceptCallUpdate().
-	 * The call parameter is optional: when creating a LinphoneCallParams for an outgoing call that is about to be created, 
+	 * The call parameter is optional: when creating a LinphoneCallParams for an outgoing call that is about to be created,
 	 * it shall be set to null.
 	 * @param call (optional)
 	 * @return a LinphoneCallParams object, representing the call settings guessed from the current LinphoneCore and compatible with the call object if any.
 	 */
 	LinphoneCallParams createCallParams(LinphoneCall call);
-	
+
 	/**
 	 * Sets the path to a wav file used for ringing.
 	 *
@@ -1197,6 +1305,13 @@ public interface LinphoneCore {
 	 * @param path path to file with multiple PEM certif or to folder with multiple PEM files
 	 */
 	void setRootCA(String path);
+
+	/**
+	 * Sets trusted root CAs
+	 *
+	 * @param data String with multiple PEM certif
+	 */
+	void setRootCAData(String data);
 
 	/**
 	 * Sets the path to a wav file used for for ringing back.
@@ -1226,7 +1341,7 @@ public interface LinphoneCore {
 	 * This is IP bandwidth, in kbit/s.
 	 * This information is used signaled to other parties during
 	 * calls (within SDP messages) so that the remote end can have
-	 * sufficient knowledge to properly configure its audio & video
+	 * sufficient knowledge to properly configure its audio &amp; video
 	 * codec output bitrate to not overflow available bandwidth.
 	 *
 	 * @param bw the bandwidth in kbits/s, 0 for infinite
@@ -1276,7 +1391,7 @@ public interface LinphoneCore {
 	 * @param fps the target frame rate in number of frames per seconds.
 	**/
 	void setPreferredFramerate(float fps);
-	
+
 	/**
 	 * Returns the preferred video framerate, previously set by setPreferredFramerate().
 	 * @return frame rate in number of frames per seconds.
@@ -1313,10 +1428,10 @@ public interface LinphoneCore {
 	boolean isKeepAliveEnabled();
 	/**
 	 * Start an echo calibration of the sound devices, in order to find adequate settings for the echo canceler automatically.
-	 * status is notified to {@link LinphoneCoreListener#ecCalibrationStatus(EcCalibratorStatus, int, Object)}
+	 * Status is notified to {@link LinphoneCoreListener#ecCalibrationStatus(LinphoneCore, EcCalibratorStatus, int, Object)}
 	 * @param listener the LinphoneEchoCalibrationListener to call when the calibration is done
 	 * @throws LinphoneCoreException if operation is still in progress;
-	**/
+	 */
 	void startEchoCalibration(LinphoneCoreListener listener) throws LinphoneCoreException;
 
 	/**
@@ -1324,13 +1439,26 @@ public interface LinphoneCore {
 	 * If the device has a builtin echo canceller or calibration value is already known, it will return false.
 	 */
 	boolean needsEchoCalibration();
-	
+
 	/**
 	 * Returns true if the software echo canceler needs to be turned on.
 	 * If the device has a builtin echo canceller, it will return false.
 	 */
 	boolean hasBuiltInEchoCanceler();
-	
+
+	/**
+	 * Start the speaker and the micro to test the echo
+	 * @param rate
+	 * @return the status
+	 */
+	int startEchoTester(int rate);
+
+	/**
+	 * Stop the speaker and the micro
+	 * @return the status
+	 */
+	int stopEchoTester();
+
 	/**
 	 * Returns true if the OpenGL on this device is crappy and we need to use the old Android display
 	 */
@@ -1344,6 +1472,7 @@ public interface LinphoneCore {
 	 * @deprecated
 	 * @param i
 	 */
+	@Deprecated
 	void adjustSoftwareVolume(int i);
 
 	/**
@@ -1389,8 +1518,8 @@ public interface LinphoneCore {
 	 * However, by calling {@link #leaveConference()} and {@link #enterConference()} the application can decide to temporarily
 	 * move out and in the local participant from the conference.
 	 *
-	 * @returns true if successful
-	**/
+	 * @return true if successful
+	 */
 	boolean enterConference();
 	/**
 	 * Moves the local participant out of the conference.
@@ -1409,7 +1538,6 @@ public interface LinphoneCore {
 	void addToConference(LinphoneCall call);
 	/**
 	 * Remove a call from the conference.
-	 * @param call a call that has been previously merged into the conference.
 	 *
 	 * After removing the remote participant belonging to the supplied call, the call becomes a normal call in paused state.
 	 * If one single remote participant is left alone together with the local user in the conference after the removal, then the conference is
@@ -1419,31 +1547,26 @@ public interface LinphoneCore {
 	 * In other words, unless {@link #leaveConference()} is explicitely called, the last remote participant of a conference is automatically
 	 * put in a simple call in running state.
 	 *
-	 **/
+	 * @param call a call that has been previously merged into the conference.
+	 */
 	void removeFromConference(LinphoneCall call);
 	/**
 	 * Add all calls into a conference.
-	 *
 	 * Merge all established calls (either in {@link LinphoneCall.State#StreamsRunning} or {@link LinphoneCall.State#Paused}) into a conference.
-	 *
-	**/
+	 */
 	void addAllToConference();
 
 	/**
 	 * Terminates the conference and the calls associated with it.
-	 *
 	 * All the calls that were merged to the conference are terminated, and the conference resources are destroyed.
-	 *
-	**/
+	 */
 	void terminateConference();
 	/**
 	 * Returns the number of participants to the conference, including the local participant.
-	 *
 	 * Typically, after merging two calls into the conference, there is total of 3 participants:
 	 * the local participant (or local user), and two remote participants that were the destinations of the two previously establised calls.
-	 *
-	 * @returns the number of participants to the conference
-	**/
+	 * @return the number of participants to the conference
+	 */
 	int getConferenceSize();
 
 	/**
@@ -1464,12 +1587,12 @@ public interface LinphoneCore {
 	/**
 	 * Returns all calls.
 	 * @return an array with all call currently handle by Linphone core
-	**/
+	 */
 	LinphoneCall[] getCalls();
 	/**
 	 * Get number of calls currently handled by Linphone core
-	 * @returns number of calls
-	 * */
+	 * @return number of calls
+	 */
 	int getCallsNb();
 
 	/**
@@ -1486,9 +1609,9 @@ public interface LinphoneCore {
 	 * This method will send a transfer request to the transfered person. The phone of the transfered is then
 	 * expected to automatically call to the destination of the transfer. The receiver of the transfer will then automatically
 	 * close the call with us (the 'dest' call).
-	 * @param call a running call you want to transfer
-	 * @param dest a running call whose remote person will receive the transfer
-	**/
+	 * @param callToTransfer a running call you want to transfer
+	 * @param destination a running call whose remote person will receive the transfer
+	 */
 	void transferCallToAnother(LinphoneCall callToTransfer, LinphoneCall destination);
 
 	/**
@@ -1521,6 +1644,7 @@ public interface LinphoneCore {
 	 * @param uri
 	 * @return
 	 */
+	@Deprecated
 	boolean isMyself(String uri);
 
 	/**
@@ -1528,7 +1652,7 @@ public interface LinphoneCore {
 	 * which could result in an active call.
 	 * Eg: don't start a new call if one is in outgoing ringing.
 	 * Eg: don't merge to conference either as it could result
-	 *     in two active calls (conference and accepted call).
+	 *   in two active calls (conference and accepted call).
 	 * @return
 	 */
 	boolean soundResourcesLocked();
@@ -1538,7 +1662,7 @@ public interface LinphoneCore {
 	boolean mediaEncryptionSupported(MediaEncryption menc);
 	/**
 	 * set media encryption (rtp) to use
-	 * @params menc: MediaEncryption.None, MediaEncryption.SRTP or MediaEncryption.ZRTP
+	 * @param menc MediaEncryption.None, MediaEncryption.SRTP or MediaEncryption.ZRTP
 	 */
 	void setMediaEncryption(MediaEncryption menc);
 	/**
@@ -1546,7 +1670,7 @@ public interface LinphoneCore {
 	 * @return MediaEncryption.None, MediaEncryption.SRTP or MediaEncryption.ZRTP
 	 */
 	MediaEncryption getMediaEncryption();
-/**
+	/**
 	 * Set media encryption required for outgoing calls
 	 */
 	void setMediaEncryptionMandatory(boolean yesno);
@@ -1559,14 +1683,14 @@ public interface LinphoneCore {
 	 * @param path path to music file played to remote side when on hold.
 	 */
 	void setPlayFile(String path);
-	
-	
+
+
 	enum TunnelMode {
 		disable(0),
 		enable(1),
 		auto(2);
 		private final int value;
-		
+
 		private TunnelMode(int value){
 			this.value = value;
 		}
@@ -1582,59 +1706,61 @@ public interface LinphoneCore {
 			}
 		}
 	}
-	
+
 	/**
 	 * @deprecated Use tunnelSetMode() instead
 	 * Enable or disable tunnel
 	 * @param enable True to enable and false to disable
 	 */
+	@Deprecated
 	void tunnelEnable(boolean enable);
-	
+
 	/**
 	 * Set the tunnel mode.
 	 * The tunnel can be enable or disable by passing 'enable' or 'disable'.
 	 * If the mode is set to 'auto', Linphone will try to establish an RTP session
 	 * on the mirror port of the tunnel server. If the connection fails, the tunnel
-	 * will be activated. 
+	 * will be activated.
 	 * @param mode enable, disable or auto
 	 */
 	void tunnelSetMode(TunnelMode mode);
-	
+
 	/**
 	 * Get the set mode
-	 * @return 
+	 * @return
 	 */
 	TunnelMode tunnelGetMode();
-	
+
 	/**
 	 * Set whether sip packets must pass through the tunnel
 	 * @param enable If true, tunnel will transport SIP packets in addition
 	 * of RTP packets.
 	 */
 	void tunnelEnableSip(boolean enable);
-	
+
 	/**
 	 * Check whether SIP tuneling is enabled
 	 * @return true means the tunnel is set to transport SIP packets
 	 */
 	boolean tunnelSipEnabled();
-	
+
 	/**
 	 * @deprecated Use tunnelSetMode instaead
 	 * Enable tunnel if the mirror RTP session cannot be established
 	 */
+	@Deprecated
 	void tunnelAutoDetect();
-	
+
 	/**
 	 * Clean the list of server
 	 */
 	void tunnelCleanServers();
-	
+
 	/**
 	 * Set an optional HTTP proxy
 	 * @param proxy_host
-	 * @param port 
-	 * @param username 
+	 * @param port
+	 * @param username
 	 * @param password
 	 */
 	void tunnelSetHttpProxy(String proxy_host, int port, String username, String password);
@@ -1686,8 +1812,8 @@ public interface LinphoneCore {
 	void setStaticPicture(String path);
 	/**
 	 * Sets the user agent string used in SIP messages.
-	 * @param user agent name
-	 * @param user agent version
+	 * @param name user agent name
+	 * @param version user agent version
 	**/
 	void setUserAgent(String name, String version);
 	/**
@@ -1871,7 +1997,7 @@ public interface LinphoneCore {
 
 	/**
 	 * Create an empty INFO message.
-	 * It can later be sent using {@link LinphoneCall.sendInfoMessage() }.
+	 * It can later be sent using {@link LinphoneCall#sendInfoMessage(LinphoneInfoMessage)}.
 	 * @return the new info message.
 	 */
 	public LinphoneInfoMessage createInfoMessage();
@@ -1895,7 +2021,6 @@ public interface LinphoneCore {
 	 * @param resource the destination resource
 	 * @param event the event name
 	 * @param expires the whished duration of the subscription
-	 * @param body an optional body, may be NULL.
 	 * @return a LinphoneEvent holding the context of the created subcription.
 	 */
 	public LinphoneEvent createSubscribe(LinphoneAddress resource, String event, int expires);
@@ -1954,11 +2079,11 @@ public interface LinphoneCore {
 
 	/**
 	 * Migrate configuration so that all SIP transports are enabled.
-	 * Versions of linphone < 3.7 did not support using multiple SIP transport simultaneously.
+	 * Versions of linphone &lt; 3.7 did not support using multiple SIP transport simultaneously.
 	 * This function helps application to migrate the configuration so that all transports are enabled.
 	 * Existing proxy configuration are added a transport parameter so that they continue using the unique transport that was set previously.
 	 * This function must be used just after creating the core, before any call to linphone_core_iterate()
-	 * @returns 1 if migration was done, 0 if not done because unnecessary or already done, -1 in case of error.
+	 * @return 1 if migration was done, 0 if not done because unnecessary or already done, -1 in case of error.
 	 */
 	public int migrateToMultiTransport();
 
@@ -1969,12 +2094,10 @@ public interface LinphoneCore {
 
 	/**
 	 * When receiving an incoming, accept to start a media session as early-media.
-	 * This means the call is not accepted but audio & video streams can be established if the remote party supports early media.
-	 * However, unlike after call acceptance, mic and camera input are not sent during early-media, though received audio & video are played normally.
+	 * This means the call is not accepted but audio &amp; video streams can be established if the remote party supports early media.
+	 * However, unlike after call acceptance, mic and camera input are not sent during early-media, though received audio &amp; video are played normally.
 	 * The call can then later be fully accepted using linphone_core_accept_call() or linphone_core_accept_call_with_params().
-	 * @param lc the linphonecore
 	 * @param call the call
-	 * @param params the call params, can be NULL.
 	 * @return true if successful, false otherwise.
 	 */
 	public boolean acceptEarlyMedia(LinphoneCall call);
@@ -1982,9 +2105,8 @@ public interface LinphoneCore {
 	/**
 	 * Accept an early media session for an incoming call.
 	 * This is identical as calling linphone_core_accept_early_media_with_params() with NULL call parameters.
-	 * @see linphone_core_accept_early_media_with_params()
 	 * @param call the incoming call
-	 * @param params
+	 * @param params the call params, can be NULL.
 	 * @return true if successful, false otherwise.
 	 */
 	public boolean acceptEarlyMediaWithParams(LinphoneCall call, LinphoneCallParams params);
@@ -2007,7 +2129,7 @@ public interface LinphoneCore {
 	 * Assign an audio file to be played locally in replacement of common telephony tone.
 	 * This is typically used to internationalize tones.
 	 * @param id a tone id
-	 * @param wav a path to a 16 bit PCM linear wav file.
+	 * @param wavfile a path to a 16 bit PCM linear wav file.
 	 */
 	public void setTone(ToneID id, String wavfile);
 
@@ -2036,16 +2158,14 @@ public interface LinphoneCore {
 
 	/**
 	 * Inconditionnaly disable incoming chat messages.
-	 * @param lc the core
-	 * @param deny_reason the deny reason (using ReasonNone has no effect).
-	**/
+	 * @param denycode the deny reason (using ReasonNone has no effect).
+	 */
 	public void disableChat(Reason denycode);
 
 	/**
 	 * Enable reception of incoming chat messages.
 	 * By default it is enabled but it can be disabled with linphone_core_disable_chat().
-	 * @param lc the core
-	**/
+	 */
 	public void enableChat();
 
 
@@ -2076,37 +2196,37 @@ public interface LinphoneCore {
 	 * @param value the jitter buffer size in milliseconds.
 	 */
 	public void setVideoJittcomp(int value);
-	
+
 	/**
 	 * Globaly set an http file transfer server to be used for content type application/vnd.gsma.rcs-ft-http+xml.
 	 * @param serverUrl URL of the file server like https://file.linphone.org/upload.php
 	 */
 	public void setFileTransferServer(String serverUrl);
-	
+
 	/**
 	 * Get the globaly set http file transfer server to be used for content type application/vnd.gsma.rcs-ft-http+xml.
 	 * @return the serverUrl
 	 */
 	public String getFileTransferServer();
-	
+
 	/**
 	 * Create a media player
 	 * @return An object that implement LinphonePlayer
 	 */
 	public LinphonePlayer createLocalPlayer(AndroidVideoWindowImpl window);
-	
+
 	/**
 	 * Adds a new listener to be called by the core
 	 * @param listener to add
 	 */
 	public void addListener(LinphoneCoreListener listener);
-	
+
 	/**
 	 * Removes a listener previously added with addListener
 	 * @param listener to remove
 	 */
 	public void removeListener(LinphoneCoreListener listener);
-	
+
 	/**
 	 * Specifies a ring back tone to be played to far end during incoming calls, when early media is requested.
 	 * @param file
@@ -2118,7 +2238,7 @@ public interface LinphoneCore {
 	 * @return the ringback tone file path.
 	 */
 	String getRemoteRingbackTone();
-	
+
 	/**
 	 * Upload the log collection to the configured server url.
 	 */
@@ -2128,19 +2248,18 @@ public interface LinphoneCore {
 	 * Reset the log collection by removing the log files.
 	 */
 	public void resetLogCollection();
-	
-	
+
+
 	/**
 	 * Use to set multicast address to be used for audio stream.
 	 * @param ip an ipv4/6 multicast address
-	 * @return 
-	 * @thow LinphoneCoreException
-	**/
+	 * @throws LinphoneCoreException
+	 */
 	public void setAudioMulticastAddr(String ip) throws LinphoneCoreException;
 	/**
 	 * Use to set multicast address to be used for video stream.
 	 * @param ip an ipv4/6 multicast address
-	 * @thow LinphoneCoreException
+	 * @throws LinphoneCoreException
 	**/
 	public void setVideoMulticastAddr(String ip) throws LinphoneCoreException;
 
@@ -2159,56 +2278,54 @@ public interface LinphoneCore {
 	/**
 	 * Use to set multicast ttl to be used for audio stream.
 	 * @param ttl value or -1 if not used. [0..255] default value is 1
-	 * @thow LinphoneCoreException
+	 * @throws LinphoneCoreException
 	**/
 	public void setAudioMulticastTtl(int ttl)  throws LinphoneCoreException;
 	/**
 	 * Use to set multicast ttl to be used for video stream.
 	 * @param  ttl value or -1 if not used. [0..255] default value is 1
-	 * @thow LinphoneCoreException
+	 * @throws LinphoneCoreException
 	**/
 	public void setVideoMulticastTtl(int ttl) throws LinphoneCoreException;
 
 	/**
 	 * Use to get multicast ttl to be used for audio stream.
 	 * @return a time to leave value
-	 * @thow LinphoneCoreException
-	 * 	**/
+	 */
 	public int getAudioMulticastTtl();
 
 	/**
 	 * Use to get multicast ttl to be used for video stream.
 	 * @return a time to leave value
-	 * @thow LinphoneCoreException
-	**/
+	 */
 	public int getVideoMulticastTtl();
 
 
 	/**
 	 * Use to enable multicast rtp for audio stream.
-	 * * If enabled, outgoing calls put a multicast address from {@link linphone_core_get_video_multicast_addr} into audio cline. In case of outgoing call audio stream is sent to this multicast address.
+	 * If enabled, outgoing calls put a multicast address from {@link getAudioMulticastAddr()} into audio cline. In case of outgoing call audio stream is sent to this multicast address.
 	 * <br> For incoming calls behavior is unchanged.
-	 * @param yesno if yes, subsequent calls will propose multicast ip set by {@link linphone_core_set_audio_multicast_addr}
-	**/
+	 * @param yesno if yes, subsequent calls will propose multicast ip set by {@link setAudioMulticastAddr(String)}
+	 */
 	public void enableAudioMulticast(boolean yesno);
 
 	/**
 	 * Use to get multicast state of audio stream.
-	 * @return true if  subsequent calls will propose multicast ip set by {@link linphone_core_set_audio_multicast_addr}
-	**/
+	 * @return true if  subsequent calls will propose multicast ip set by {@link setAudioMulticastAddr(String)}
+	 */
 	public  boolean audioMulticastEnabled();
 
 	/**
 	 * Use to enable multicast rtp for video stream.
-	 * If enabled, outgoing calls put a multicast address from {@link linphone_core_get_video_multicast_addr} into video cline. In case of outgoing call video stream is sent to this  multicast address.
+	 * If enabled, outgoing calls put a multicast address from {@link getVideoMulticastAddr()} into video cline. In case of outgoing call video stream is sent to this  multicast address.
 	 * <br> For incoming calls behavior is unchanged.
-	 * @param yesno if yes, subsequent outgoing calls will propose multicast ip set by {@link linphone_core_set_video_multicast_addr}
-	**/
+	 * @param yesno if yes, subsequent outgoing calls will propose multicast ip set by {@link setVideoMulticastAddr(String)}
+	 */
 	public void enableVideoMulticast(boolean yesno);
 	/**
 	 * Use to get multicast state of video stream.
-	 * @return true if  subsequent calls will propose multicast ip set by {@link linphone_core_set_video_multicast_addr}
-	**/
+	 * @return true if  subsequent calls will propose multicast ip set by {@link setVideoMulticastAddr(String)}
+	 */
 	public  boolean videoMulticastEnabled();
 
 	/**
@@ -2225,14 +2342,12 @@ public interface LinphoneCore {
 
 	/**
 	 * Set the video preset to be used for video calls.
-	 * @param lc LinphoneCore object
 	 * @param preset The name of the video preset to be used (can be null to use the default video preset).
 	 */
 	public void setVideoPreset(String preset);
 
 	/**
 	 * Get the video preset used for video calls.
-	 * @param lc LinphoneCore object
 	 * @return The name of the video preset used for video calls (can be null if the default video preset is used).
 	 */
 	public String getVideoPreset();
@@ -2282,7 +2397,7 @@ public interface LinphoneCore {
 	 * @param isReachable whether SIP network is reachable.
 	 */
 	public void setSipNetworkReachable(boolean isReachable);
-	
+
 	/**
 	 * This method is called by the application to notify the linphone core library when the media (RTP) network is reachable.
 	 * This is for advanced usage, when SIP and RTP layers are required to use different interfaces.
@@ -2313,4 +2428,88 @@ public interface LinphoneCore {
 	 * @param path The path from where plugins are to be loaded.
 	**/
 	public void reloadMsPlugins(String path);
+
+	/**
+	 * Reload sound devices.
+	 * Use it if you change the devices table.
+	 */
+	public void reloadSoundDevices();
+
+	public void setDefaultSoundDevices();
+
+	public boolean isLimeEncryptionAvailable();
+
+	public void setLimeEncryption(LinphoneLimeState lime);
+
+	public LinphoneLimeState getLimeEncryption();
+
+	/**
+	 * Gets the TLS certificate
+	 * @return the TLS certificate
+	 */
+	public String getTlsCertificate();
+
+	/**
+	 * Gets the TLS key file
+	 * @return the TLS key
+	 */
+	public String getTlsKey();
+
+	/**
+	 * Gets the path to the TLS certificate file
+	 * @return the path to the TLS certificate
+	 */
+	public String getTlsCertificatePath();
+
+	/**
+	 * Gets the path to the TLS key file
+	 * @return the path to the TLS key
+	 */
+	public String getTlsKeyPath();
+
+	/**
+	 * Sets the TLS certificate
+	 * @param cert the certificate
+	 */
+	public void setTlsCertificate(String cert);
+
+	/**
+	 * Sets the TLS key
+	 * @param key the key
+	 */
+	public void setTlsKey(String key);
+
+	/**
+	 * Sets the TLS certificate file path
+	 * @param path the path of the certificate
+	 */
+	public void setTlsCertificatePath(String path);
+
+	/**
+	 * Sets the TLS key file path
+	 * @param path the path of the key
+	 */
+	public void setTlsKeyPath(String path);
+
+	/**
+	 * Enable or not openh264
+	 * @param enable
+     */
+	public void enableOpenH264(boolean enable);
+
+	/**
+	 * Return if we enable openh264
+	 * @return
+     */
+	public boolean openH264Enabled();
+
+	/**
+	 * @return a new LinphoneFriend link with this LinphoneCore
+     */
+	public LinphoneFriend createFriend();
+
+	/**
+	 * @return a new LinphoneFriend with the given address link with this LinphoneCore
+	 */
+	public LinphoneFriend createFriendWithAddress(String address);
 }

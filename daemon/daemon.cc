@@ -1,16 +1,41 @@
+/*
+daemon.cc
+Copyright (C) 2016 Belledonne Communications, Grenoble, France 
+
+This library is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or (at
+your option) any later version.
+
+This library is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this library; if not, write to the Free Software Foundation,
+Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+*/
+
 #include <cstdio>
+#ifndef _WIN32
 #include <sys/ioctl.h>
+#endif
 #include <iostream>
 #include <iomanip>
 #include <sstream>
 #include <algorithm>
+#include <functional>
+#include <limits>
 
 #ifdef HAVE_READLINE
 #include <readline/readline.h>
 #include <readline/history.h>
 #endif
 
+#ifndef _WIN32
 #include <poll.h>
+#endif
 
 #include "daemon.h"
 #include "commands/adaptive-jitter-compensation.h"
@@ -251,9 +276,9 @@ PayloadTypeParser::PayloadTypeParser(LinphoneCore *core, const string &mime_type
 			return;
 		}
 		mPayloadType = linphone_core_find_payload_type(core, type, rate, channels);
-		if (mPayloadType) mPosition=ms_list_index(linphone_core_get_audio_codecs(core), mPayloadType);
+		if (mPayloadType) mPosition=bctbx_list_index(linphone_core_get_audio_codecs(core), mPayloadType);
 	}else if (number!=-1){
-		const MSList *elem;
+		const bctbx_list_t *elem;
 		for(elem=linphone_core_get_audio_codecs(core);elem!=NULL;elem=elem->next){
 			if (number==linphone_core_get_payload_type_number(core,(PayloadType*)elem->data)){
 				mPayloadType=(PayloadType*)elem->data;
@@ -263,10 +288,10 @@ PayloadTypeParser::PayloadTypeParser(LinphoneCore *core, const string &mime_type
 	}
 }
 
-DaemonCommandExample::DaemonCommandExample(const char *command, const char *output)
+DaemonCommandExample::DaemonCommandExample(const string& command, const string& output)
 	: mCommand(command), mOutput(output) {}
 
-DaemonCommand::DaemonCommand(const char *name, const char *proto, const char *description) :
+DaemonCommand::DaemonCommand(const string& name, const string& proto, const string& description) :
 		mName(name), mProto(proto), mDescription(description) {
 }
 
@@ -289,15 +314,15 @@ const string DaemonCommand::getHelp() const {
 	return ost.str();
 }
 
-bool DaemonCommand::matches(const char *name) const {
-	return strcmp(name, mName.c_str()) == 0;
+bool DaemonCommand::matches(const string& name) const {
+	return mName.compare(name) == 0;
 }
 
 Daemon::Daemon(const char *config_path, const char *factory_config_path, const char *log_file, const char *pipe_name, bool display_video, bool capture_video) :
 		mLSD(0), mLogFile(NULL), mAutoVideo(0), mCallIds(0), mProxyIds(0), mAudioStreamIds(0) {
 	ms_mutex_init(&mMutex, NULL);
-	mServerFd = -1;
-	mChildFd = -1;
+	mServerFd = (ortp_pipe_t)-1;
+	mChildFd = (ortp_pipe_t)-1;
 	if (pipe_name == NULL) {
 #ifdef HAVE_READLINE
 		const char *homedir = getenv("HOME");
@@ -310,8 +335,12 @@ Daemon::Daemon(const char *config_path, const char *factory_config_path, const c
 #endif
 	} else {
 		mServerFd = ortp_server_pipe_create(pipe_name);
+#ifndef _WIN32
 		listen(mServerFd, 2);
-		fprintf(stdout, "Server unix socket created, name=%s fd=%i\n", pipe_name, mServerFd);
+		fprintf(stdout, "Server unix socket created, name=%s fd=%i\n", pipe_name, (int)mServerFd);
+#else
+		fprintf(stdout, "Named pipe  created, name=%s fd=%i\n", pipe_name, (int)mServerFd);
+#endif
 	}
 
 	if (log_file != NULL) {
@@ -321,7 +350,8 @@ Daemon::Daemon(const char *config_path, const char *factory_config_path, const c
 		linphone_core_disable_logs();
 	}
 
-	LinphoneCoreVTable vtable = { 0 };
+	LinphoneCoreVTable vtable;
+	memset(&vtable, 0, sizeof(vtable));
 	vtable.call_state_changed = callStateChanged;
 	vtable.call_stats_updated = callStatsUpdated;
 	vtable.dtmf_received = dtmfReceived;
@@ -355,7 +385,7 @@ int Daemon::updateCallId(LinphoneCall *call) {
 }
 
 LinphoneCall *Daemon::findCall(int id) {
-	const MSList *elem = linphone_core_get_calls(mLc);
+	const bctbx_list_t *elem = linphone_core_get_calls(mLc);
 	for (; elem != NULL; elem = elem->next) {
 		LinphoneCall *call = (LinphoneCall *) elem->data;
 		if (linphone_call_get_user_pointer(call) == (void*) (long) id)
@@ -374,7 +404,7 @@ int Daemon::updateProxyId(LinphoneProxyConfig *cfg) {
 }
 
 LinphoneProxyConfig *Daemon::findProxy(int id) {
-	const MSList *elem = linphone_core_get_proxy_config_list(mLc);
+	const bctbx_list_t *elem = linphone_core_get_proxy_config_list(mLc);
 	for (; elem != NULL; elem = elem->next) {
 		LinphoneProxyConfig *proxy = (LinphoneProxyConfig *) elem->data;
 		if (linphone_proxy_config_get_user_data(proxy) == (void*) (long) id)
@@ -384,8 +414,8 @@ LinphoneProxyConfig *Daemon::findProxy(int id) {
 }
 
 LinphoneAuthInfo *Daemon::findAuthInfo(int id)  {
-	const MSList *elem = linphone_core_get_auth_info_list(mLc);
-	if (elem == NULL || id < 1 || id > ms_list_size(elem)) {
+	const bctbx_list_t *elem = linphone_core_get_auth_info_list(mLc);
+	if (elem == NULL || id < 1 || (unsigned int)id > bctbx_list_size(elem)) {
 		return NULL;
 	}
 	while (id > 1) {
@@ -401,9 +431,9 @@ int Daemon::updateAudioStreamId(AudioStream *audio_stream) {
 			return it->first;
 	}
 
-	++mProxyIds;
-	mAudioStreams.insert(make_pair(mProxyIds, new AudioStreamAndOther(audio_stream)));
-	return mProxyIds;
+	++mAudioStreamIds;
+	mAudioStreams.insert(make_pair(mAudioStreamIds, new AudioStreamAndOther(audio_stream)));
+	return mAudioStreamIds;
 }
 
 AudioStreamAndOther *Daemon::findAudioStreamAndOther(int id) {
@@ -428,6 +458,10 @@ void Daemon::removeAudioStream(int id) {
 	}
 }
 
+static bool compareCommands(const DaemonCommand *command1, const DaemonCommand *command2) {
+	return (command1->getProto() < command2->getProto());
+}
+
 void Daemon::initCommands() {
 	mCommands.push_back(new RegisterCommand());
 	mCommands.push_back(new ContactCommand());
@@ -442,14 +476,14 @@ void Daemon::initCommands() {
 	mCommands.push_back(new AnswerCommand());
 	mCommands.push_back(new CallStatusCommand());
 	mCommands.push_back(new CallStatsCommand());
-	mCommands.push_back(new CallPause());
-	mCommands.push_back(new CallMute());
-	mCommands.push_back(new CallResume());
-	mCommands.push_back(new CallTransfer());
+	mCommands.push_back(new CallPauseCommand());
+	mCommands.push_back(new CallMuteCommand());
+	mCommands.push_back(new CallResumeCommand());
+	mCommands.push_back(new CallTransferCommand());
 	mCommands.push_back(new Video());
 	mCommands.push_back(new VideoSource());
 	mCommands.push_back(new AutoVideo());
-	mCommands.push_back(new Conference());
+	mCommands.push_back(new ConferenceCommand());
 	mCommands.push_back(new AudioCodecGetCommand());
 	mCommands.push_back(new AudioCodecEnableCommand());
 	mCommands.push_back(new AudioCodecDisableCommand());
@@ -474,6 +508,7 @@ void Daemon::initCommands() {
 	mCommands.push_back(new ConfigSetCommand());
 	mCommands.push_back(new NetsimCommand());
 	mCommands.push_back(new CNCommand());
+	mCommands.sort(compareCommands);
 }
 
 void Daemon::uninitCommands() {
@@ -499,20 +534,7 @@ bool Daemon::pullEvent() {
 }
 
 void Daemon::callStateChanged(LinphoneCall *call, LinphoneCallState state, const char *msg) {
-	switch (state) {
-	case LinphoneCallIncomingReceived:
-		linphone_call_enable_camera (call,mAutoVideo);
-	case LinphoneCallOutgoingProgress:
-	case LinphoneCallIncomingEarlyMedia:
-	case LinphoneCallConnected:
-	case LinphoneCallStreamsRunning:
-	case LinphoneCallError:
-	case LinphoneCallEnd:
-		mEventQueue.push(new EventResponse(this, call, state));
-		break;
-	default:
-		break;
-	}
+	mEventQueue.push(new EventResponse(this, call, state));
 }
 
 void Daemon::callStatsUpdated(LinphoneCall *call, const LinphoneCallStats *stats) {
@@ -559,7 +581,7 @@ void Daemon::iterateStreamStats() {
 void Daemon::iterate() {
 	linphone_core_iterate(mLc);
 	iterateStreamStats();
-	if (mChildFd == -1) {
+	if (mChildFd == (ortp_pipe_t)-1) {
 		if (!mEventQueue.empty()) {
 			Response *r = mEventQueue.front();
 			mEventQueue.pop();
@@ -570,10 +592,14 @@ void Daemon::iterate() {
 	}
 }
 
-void Daemon::execCommand(const char *cl) {
-	char args[sLineSize] = { 0 };
-	char name[sLineSize] = { 0 };
-	sscanf(cl, "%511s %511[^\n]", name, args); //Read the rest of line in args
+void Daemon::execCommand(const string &command) {
+	istringstream ist(command);
+	string name;
+	ist >> name;
+	stringbuf argsbuf;
+	ist.get(argsbuf);
+	string args = argsbuf.str();
+	if (!args.empty() && (args[0] == ' ')) args.erase(0, 1);
 	list<DaemonCommand*>::iterator it = find_if(mCommands.begin(), mCommands.end(), bind2nd(mem_fun(&DaemonCommand::matches), name));
 	if (it != mCommands.end()) {
 		ms_mutex_lock(&mMutex);
@@ -585,63 +611,85 @@ void Daemon::execCommand(const char *cl) {
 }
 
 void Daemon::sendResponse(const Response &resp) {
-	char buf[4096] = { 0 };
-	int size;
-	size = resp.toBuf(buf, sizeof(buf));
-	if (mChildFd != -1) {
-		if (write(mChildFd, buf, size) == -1) {
+	string buf = resp.toBuf();
+	if (mChildFd != (ortp_pipe_t)-1) {
+		if (ortp_pipe_write(mChildFd, (uint8_t *)buf.c_str(), buf.size()) == -1) {
 			ms_error("Fail to write to pipe: %s", strerror(errno));
 		}
 	} else {
-		fprintf(stdout, "%s", buf);
-		fflush(stdout);
+		cout << buf << flush;
 	}
 }
 
-char *Daemon::readPipe(char *buffer, int buflen) {
-	struct pollfd pfd[2] = { { 0 }, { 0 } };
+string Daemon::readPipe() {
+	char buffer[32768];
+	memset(buffer, '\0', sizeof(buffer));
+#ifdef _WIN32
+	if (mChildFd == (ortp_pipe_t)-1) {
+		mChildFd = ortp_server_pipe_accept_client(mServerFd);
+		ms_message("Client accepted");
+	}
+	if (mChildFd != (ortp_pipe_t)-1) {
+		int ret = ortp_pipe_read(mChildFd, (uint8_t *)buffer, sizeof(buffer));
+		if (ret == -1) {
+			ms_error("Fail to read from pipe: %s", strerror(errno));
+			mChildFd = (ortp_pipe_t)-1;
+		} else {
+			if (ret == 0) {
+				ms_message("Client disconnected");
+				mChildFd = (ortp_pipe_t)-1;
+				return "";
+			}
+			buffer[ret] = '\0';
+			return buffer;
+		}
+	}
+#else
+	struct pollfd pfd[2];
 	int nfds = 1;
-	if (mServerFd != -1) {
+	memset(&pfd[0], 0, sizeof(pfd));
+	if (mServerFd != (ortp_pipe_t)-1) {
 		pfd[0].events = POLLIN;
 		pfd[0].fd = mServerFd;
 	}
-	if (mChildFd != -1) {
+	if (mChildFd != (ortp_pipe_t)-1) {
 		pfd[1].events = POLLIN;
 		pfd[1].fd = mChildFd;
 		nfds++;
 	}
 	int err = poll(pfd, nfds, 50);
 	if (err > 0) {
-		if (mServerFd != -1 && (pfd[0].revents & POLLIN)) {
+		if (mServerFd != (ortp_pipe_t)-1 && (pfd[0].revents & POLLIN)) {
 			struct sockaddr_storage addr;
 			socklen_t addrlen = sizeof(addr);
 			int childfd = accept(mServerFd, (struct sockaddr*) &addr, &addrlen);
 			if (childfd != -1) {
-				if (mChildFd != -1) {
+				if (mChildFd != (ortp_pipe_t)-1) {
 					ms_error("Cannot accept two client at the same time");
 					close(childfd);
 				} else {
-					mChildFd = childfd;
+					mChildFd = (ortp_pipe_t)childfd;
 					return NULL;
 				}
 			}
 		}
-		if (mChildFd != -1 && (pfd[1].revents & POLLIN)) {
+		if (mChildFd != (ortp_pipe_t)-1 && (pfd[1].revents & POLLIN)) {
 			int ret;
-			if ((ret = read(mChildFd, buffer, buflen)) == -1) {
+			if ((ret = ortp_pipe_read(mChildFd, (uint8_t *)buffer, sizeof(buffer))) == -1) {
 				ms_error("Fail to read from pipe: %s", strerror(errno));
 			} else {
 				if (ret == 0) {
 					ms_message("Client disconnected");
-					close(mChildFd);
-					mChildFd = -1;
+					ortp_server_pipe_close_client(mChildFd);
+					mChildFd = (ortp_pipe_t)-1;
 					return NULL;
 				}
-				buffer[ret] = 0;
+				buffer[ret] = '\0';
 				return buffer;
 			}
 		}
 	}
+#endif
 	return NULL;
 }
 
@@ -719,74 +767,77 @@ void Daemon::dumpCommandsHelpHtml(){
 
 
 static void printHelp() {
-	fprintf(stdout, "daemon-linphone [<options>]\n"
+	cout << "daemon-linphone [<options>]" << endl <<
 #if defined(LICENCE_GPL) || defined(LICENCE_COMMERCIAL)
-			"Licence: "
+		"Licence: "
 #ifdef LICENCE_GPL
-			"GPL"
+		"GPL"
 #endif
 #ifdef LICENCE_COMMERCIAL
-			"Commercial"
+		"Commercial"
 #endif
-			"\n"
+		<< endl <<
 #endif
 
-			"where options are :\n"
-			"\t--help\t\t\tPrint this notice.\n"
-			"\t--dump-commands-help\tDump the help of every available commands.\n"
-			"\t--dump-commands-html-help\tDump the help of every available commands.\n"
-			"\t--pipe <pipename>\tCreate an unix server socket to receive commands.\n"
-			"\t--log <path>\t\tSupply a file where the log will be saved.\n"
-			"\t--factory-config <path>\tSupply a readonly linphonerc style config file to start with.\n"
-			"\t--config <path>\t\tSupply a linphonerc style config file to start with.\n"
-			"\t--disable-stats-events\t\tDo not automatically raise RTP statistics events.\n"
-			"\t--enable-lsd\t\tUse the linphone sound daemon.\n"
-			"\t-C\t\t\tenable video capture.\n"
-			"\t-D\t\t\tenable video display.\n");
+		"where options are :" << endl <<
+		"\t--help                     Print this notice." << endl <<
+		"\t--dump-commands-help       Dump the help of every available commands." << endl <<
+		"\t--dump-commands-html-help  Dump the help of every available commands." << endl <<
+		"\t--pipe <pipename>          Create an unix server socket to receive commands." << endl <<
+		"\t--log <path>               Supply a file where the log will be saved." << endl <<
+		"\t--factory-config <path>    Supply a readonly linphonerc style config file to start with." << endl <<
+		"\t--config <path>            Supply a linphonerc style config file to start with." << endl <<
+		"\t--disable-stats-events     Do not automatically raise RTP statistics events." << endl <<
+		"\t--enable-lsd               Use the linphone sound daemon." << endl <<
+		"\t-C                         Enable video capture." << endl <<
+		"\t-D                         Enable video display." << endl;
 }
 
 void Daemon::startThread() {
 	ms_thread_create(&this->mThread, NULL, Daemon::iterateThread, this);
 }
 
-char *Daemon::readLine(const char *prompt, bool *eof) {
+#ifdef max
+#undef max
+#endif
+
+string Daemon::readLine(const string& prompt, bool *eof) {
 	*eof=false;
 #ifdef HAVE_READLINE
-	return readline(prompt);
+	return readline(prompt.c_str());
 #else
 	if (cin.eof()) {
 		*eof=true;
-		return NULL;
+		return "";
 	}
 	cout << prompt;
-	char *buff = (char *) malloc(sLineSize);
-	cin.getline(buff, sLineSize);
-	return buff;
+	stringbuf outbuf;
+	cin.get(outbuf);
+	cin.clear();
+	cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+	return outbuf.str();
 #endif
 }
 
 int Daemon::run() {
-	char line[sLineSize] = "daemon-linphone>";
-	char *ret;
+	const string prompt("daemon-linphone>");
 	mRunning = true;
 	startThread();
 	while (mRunning) {
+		string line;
 		bool eof=false;
-		if (mServerFd == -1) {
-			ret = readLine(line,&eof);
-			if (ret && ret[0] != '\0') {
+		if (mServerFd == (ortp_pipe_t)-1) {
+			line = readLine(prompt, &eof);
+			if (!line.empty()) {
 #ifdef HAVE_READLINE
-				add_history(ret);
+				add_history(line.c_str());
 #endif
 			}
 		} else {
-			ret = readPipe(line, sLineSize);
+			line = readPipe();
 		}
-		if (ret && ret[0] != '\0') {
-			execCommand(ret);
-		}
-		if (mServerFd == -1 && ret != NULL) {
-			free(ret);
+		if (!line.empty()) {
+			execCommand(line);
 		}
 		if (eof && mRunning) {
 			mRunning = false; // ctrl+d
@@ -828,10 +879,10 @@ Daemon::~Daemon() {
 
 	enableLSD(false);
 	linphone_core_destroy(mLc);
-	if (mChildFd != -1) {
-		close(mChildFd);
+	if (mChildFd != (ortp_pipe_t)-1) {
+		ortp_server_pipe_close_client(mChildFd);
 	}
-	if (mServerFd != -1) {
+	if (mServerFd != (ortp_pipe_t)-1) {
 		ortp_server_pipe_close(mServerFd);
 	}
 	if (mLogFile != NULL) {
@@ -876,6 +927,7 @@ int main(int argc, char *argv[]) {
 				return -1;
 			}
 			pipe_name = argv[++i];
+			stats_enabled = false;
 		} else if (strcmp(argv[i], "--factory-config") == 0) {
 			if (i + 1 >= argc) {
 				fprintf(stderr, "no file specify after --factory-config\n");

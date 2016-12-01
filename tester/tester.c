@@ -17,7 +17,8 @@
  */
 
 #include <stdio.h>
-#include "linphonecore.h"
+#include <stdlib.h>
+#include "linphone/core.h"
 #include "private.h"
 #include "liblinphone_tester.h"
 #include <bctoolbox/tester.h>
@@ -25,7 +26,9 @@
 #if __clang__ || ((__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || __GNUC__ > 4)
 #pragma GCC diagnostic push
 #endif
+#ifndef _MSC_VER
 #pragma GCC diagnostic ignored "-Wstrict-prototypes"
+#endif
 
 #ifdef HAVE_GTK
 #include <gtk/gtk.h>
@@ -43,6 +46,7 @@
 static int liblinphone_tester_keep_accounts_flag = 0;
 static int liblinphone_tester_keep_record_files = FALSE;
 static int liblinphone_tester_leak_detector_disabled = FALSE;
+bool_t liblinphone_tester_tls_support_disabled = FALSE;
 int manager_count = 0;
 int leaked_objects_count = 0;
 const MSAudioDiffParams audio_cmp_params = {10,2000};
@@ -53,7 +57,11 @@ const char* test_username="liblinphone_tester";
 const char* test_password="secret";
 const char* test_route="sip2.linphone.org";
 const char *userhostsfile = "tester_hosts";
-bool_t liblinphonetester_ipv6 = FALSE;
+bool_t liblinphonetester_ipv6 = TRUE;
+bool_t liblinphonetester_show_account_manager_logs = FALSE;
+int liblinphonetester_transport_timeout = 9000; /*milliseconds. it is set to such low value to workaround a problem with our Freebox v6 when connecting to Ipv6 addresses.
+			It was found that the freebox sometimes block SYN-ACK packets, which prevents connection to be succesful.
+			Thanks to the timeout, it will fallback to IPv4*/
 
 const char *liblinphone_tester_mire_id="Mire: Mire (synthetic moving picture)";
 
@@ -117,6 +125,7 @@ LinphoneCore* configure_lc_from(LinphoneCoreVTable* v_table, const char* path, c
 	char *rootcapath       = NULL;
 	char *dnsuserhostspath = NULL;
 	char *nowebcampath     = NULL;
+	char *chatdb     = NULL;
 
 	if (path==NULL) path=".";
 
@@ -134,7 +143,7 @@ LinphoneCore* configure_lc_from(LinphoneCoreVTable* v_table, const char* path, c
 	ringbackpath     = ms_strdup_printf("%s/sounds/ringback.wav", path);
 	nowebcampath     = ms_strdup_printf("%s/images/nowebcamCIF.jpg", path);
 	rootcapath       = ms_strdup_printf("%s/certificates/cn/cafile.pem", path);
-	dnsuserhostspath = ms_strdup_printf( "%s/%s", path, userhostsfile);
+	dnsuserhostspath = userhostsfile[0]=='/' ? ms_strdup(userhostsfile) : ms_strdup_printf("%s/%s", path, userhostsfile);
 
 
 	if( config != NULL ) {
@@ -149,18 +158,25 @@ LinphoneCore* configure_lc_from(LinphoneCoreVTable* v_table, const char* path, c
 		linphone_core_set_ringback(lc, ringbackpath);
 		linphone_core_set_root_ca(lc,rootcapath);
 	}
-	
+	chatdb = ms_strdup_printf("%s/messages-%p.db",bc_tester_get_writable_dir_prefix(),lc);
+
 	linphone_core_enable_ipv6(lc, liblinphonetester_ipv6);
-	
+	linphone_core_set_sip_transport_timeout(lc, liblinphonetester_transport_timeout);
+
 	sal_enable_test_features(lc->sal,TRUE);
 	sal_set_dns_user_hosts_file(lc->sal, dnsuserhostspath);
+#ifdef VIDEO_ENABLED
 	linphone_core_set_static_picture(lc,nowebcampath);
+#endif
+
+	linphone_core_set_chat_database_path(lc, chatdb);
 
 	ms_free(ringpath);
 	ms_free(ringbackpath);
 	ms_free(nowebcampath);
 	ms_free(rootcapath);
 	ms_free(dnsuserhostspath);
+	ms_free(chatdb);
 
 	if( filepath ) ms_free(filepath);
 
@@ -171,14 +187,14 @@ LinphoneCore* configure_lc_from(LinphoneCoreVTable* v_table, const char* path, c
 
 
 bool_t wait_for_until(LinphoneCore* lc_1, LinphoneCore* lc_2,int* counter,int value,int timout) {
-	MSList* lcs=NULL;
+	bctbx_list_t* lcs=NULL;
 	bool_t result;
 	if (lc_1)
-		lcs=ms_list_append(lcs,lc_1);
+		lcs=bctbx_list_append(lcs,lc_1);
 	if (lc_2)
-		lcs=ms_list_append(lcs,lc_2);
+		lcs=bctbx_list_append(lcs,lc_2);
 	result=wait_for_list(lcs,counter,value,timout);
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 	return result;
 }
 
@@ -186,8 +202,8 @@ bool_t wait_for(LinphoneCore* lc_1, LinphoneCore* lc_2,int* counter,int value) {
 	return wait_for_until(lc_1, lc_2,counter,value,10000);
 }
 
-bool_t wait_for_list(MSList* lcs,int* counter,int value,int timeout_ms) {
-	MSList* iterator;
+bool_t wait_for_list(bctbx_list_t* lcs,int* counter,int value,int timeout_ms) {
+	bctbx_list_t* iterator;
 	MSTimeSpec start;
 
 	liblinphone_tester_clock_start(&start);
@@ -218,26 +234,25 @@ bool_t wait_for_list(MSList* lcs,int* counter,int value,int timeout_ms) {
 bool_t wait_for_stun_resolution(LinphoneCoreManager *m) {
 	MSTimeSpec start;
 	int timeout_ms = 10000;
-
 	liblinphone_tester_clock_start(&start);
-	while (m->lc->net_conf.stun_addrinfo == NULL && !liblinphone_tester_clock_elapsed(&start,timeout_ms)) {
+	while (linphone_core_get_stun_server_addrinfo(m->lc) == NULL && !liblinphone_tester_clock_elapsed(&start,timeout_ms)) {
 		linphone_core_iterate(m->lc);
 		ms_usleep(20000);
 	}
-	return m->lc->net_conf.stun_addrinfo != NULL;
+	return linphone_core_get_stun_server_addrinfo(m->lc) != NULL;
 }
 
 static void set_codec_enable(LinphoneCore* lc,const char* type,int rate,bool_t enable) {
-	MSList* codecs=ms_list_copy(linphone_core_get_audio_codecs(lc));
-	MSList* codecs_it;
+	bctbx_list_t* codecs=bctbx_list_copy(linphone_core_get_audio_codecs(lc));
+	bctbx_list_t* codecs_it;
 	PayloadType* pt;
 	for (codecs_it=codecs;codecs_it!=NULL;codecs_it=codecs_it->next) {
 		linphone_core_enable_payload_type(lc,(PayloadType*)codecs_it->data,0);
 	}
-	if((pt = linphone_core_find_payload_type(lc,type,rate,1))) {
+	if ((pt = linphone_core_find_payload_type(lc,type,rate,1))) {
 		linphone_core_enable_payload_type(lc,pt, enable);
 	}
-	ms_list_free(codecs);
+	bctbx_list_free(codecs);
 }
 
 static void enable_codec(LinphoneCore* lc,const char* type,int rate) {
@@ -254,21 +269,29 @@ LinphoneCoreManager *get_manager(LinphoneCore *lc){
 }
 
 bool_t transport_supported(LinphoneTransportType transport) {
-	Sal *sal = sal_init(NULL);
-	bool_t supported = sal_transport_available(sal,(SalTransport)transport);
-	if (!supported) ms_message("TLS transport not supported, falling back to TCP if possible otherwise skipping test.");
-	sal_uninit(sal);
-	return supported;
+	if ((transport == LinphoneTransportDtls || transport == LinphoneTransportTls) && liblinphone_tester_tls_support_disabled == TRUE) {
+		return FALSE;
+	} else {
+		Sal *sal = sal_init(NULL);
+		bool_t supported = sal_transport_available(sal,(SalTransport)transport);
+		if (!supported) ms_message("TLS transport not supported, falling back to TCP if possible otherwise skipping test.");
+		sal_uninit(sal);
+		return  supported;
+	}
 }
 
 #if __clang__ || ((__GNUC__ == 4 && __GNUC_MINOR__ >= 6) || __GNUC__ > 4)
 #pragma GCC diagnostic push
 #endif
+#ifdef _MSC_VER
+#pragma warning(disable : 4996)
+#else
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-void linphone_core_manager_init(LinphoneCoreManager *mgr, const char* rc_file) {
+#endif
+void linphone_core_manager_init(LinphoneCoreManager *mgr, const char* rc_file, const char* phone_alias) {
 	char *rc_path = NULL;
 	char *hellopath = bc_tester_res("sounds/hello8000.wav");
-	mgr->number_of_cunit_error_at_creation =  bc_get_number_of_failures();
+	mgr->number_of_bcunit_error_at_creation =  bc_get_number_of_failures();
 	mgr->v_table.registration_state_changed=registration_state_changed;
 	mgr->v_table.auth_info_requested=auth_info_requested;
 	mgr->v_table.call_state_changed=call_state_changed;
@@ -277,6 +300,7 @@ void linphone_core_manager_init(LinphoneCoreManager *mgr, const char* rc_file) {
 	mgr->v_table.is_composing_received=is_composing_received;
 	mgr->v_table.new_subscription_requested=new_subscription_requested;
 	mgr->v_table.notify_presence_received=notify_presence_received;
+	mgr->v_table.notify_presence_received_for_uri_or_tel=notify_presence_received_for_uri_or_tel;
 	mgr->v_table.transfer_state_changed=linphone_transfer_state_changed;
 	mgr->v_table.info_received=info_message_received;
 	mgr->v_table.subscription_state_changed=linphone_subscription_state_change;
@@ -287,6 +311,8 @@ void linphone_core_manager_init(LinphoneCoreManager *mgr, const char* rc_file) {
 	mgr->v_table.network_reachable=network_reachable;
 	mgr->v_table.dtmf_received=dtmf_received;
 	mgr->v_table.call_stats_updated=call_stats_updated;
+
+	mgr->phone_alias = phone_alias ? ms_strdup(phone_alias) : NULL;
 
 	reset_counters(&mgr->stat);
 	if (rc_file) rc_path = ms_strdup_printf("rcfiles/%s", rc_file);
@@ -344,9 +370,9 @@ void linphone_core_manager_start(LinphoneCoreManager *mgr, int check_for_proxies
 	LinphoneProxyConfig* proxy;
 	int proxy_count;
 
-	/*BC_ASSERT_EQUAL(ms_list_size(linphone_core_get_proxy_config_list(lc)),proxy_count, int, "%d");*/
+	/*BC_ASSERT_EQUAL(bctbx_list_size(linphone_core_get_proxy_config_list(lc)),proxy_count, int, "%d");*/
 	if (check_for_proxies){ /**/
-		proxy_count=ms_list_size(linphone_core_get_proxy_config_list(mgr->lc));
+		proxy_count=(int)bctbx_list_size(linphone_core_get_proxy_config_list(mgr->lc));
 	}else{
 		proxy_count=0;
 		/*this is to prevent registration to go on*/
@@ -373,68 +399,110 @@ void linphone_core_manager_start(LinphoneCoreManager *mgr, int check_for_proxies
 		linphone_address_clean(mgr->identity);
 	}
 
-	if (linphone_core_get_stun_server(mgr->lc) != NULL){
-		/*before we go, ensure that the stun server is resolved, otherwise all ice related test will fail*/
-		BC_ASSERT_TRUE(wait_for_stun_resolution(mgr));
-	}
+	linphone_core_manager_wait_for_stun_resolution(mgr);
 	if (!check_for_proxies){
 		/*now that stun server resolution is done, we can start registering*/
 		linphone_core_set_network_reachable(mgr->lc, TRUE);
 	}
+
 }
 
-LinphoneCoreManager* linphone_core_manager_new( const char* rc_file) {
+LinphoneCoreManager* linphone_core_manager_new3(const char* rc_file, int check_for_proxies, const char* phone_alias) {
 	LinphoneCoreManager *manager = ms_new0(LinphoneCoreManager, 1);
-	linphone_core_manager_init(manager, rc_file);
-	linphone_core_manager_start(manager, TRUE);
-	return manager;
-}
-
-LinphoneCoreManager* linphone_core_manager_new2(const char* rc_file, int check_for_proxies) {
-	LinphoneCoreManager *manager = ms_new0(LinphoneCoreManager, 1);
-	linphone_core_manager_init(manager, rc_file);
+	
+	linphone_core_manager_init(manager, rc_file, phone_alias);
 	linphone_core_manager_start(manager, check_for_proxies);
 	return manager;
 }
 
-void linphone_core_manager_stop(LinphoneCoreManager *mgr){
-	if (mgr->lc) {
-		linphone_core_destroy(mgr->lc);
-		mgr->lc=NULL;
-	}
+LinphoneCoreManager* linphone_core_manager_new2(const char* rc_file, int check_for_proxies) {
+	return linphone_core_manager_new3(rc_file, check_for_proxies, NULL);
 }
 
-void linphone_core_manager_uninit(LinphoneCoreManager *mgr) {
-	if (mgr->stat.last_received_chat_message) {
-		linphone_chat_message_unref(mgr->stat.last_received_chat_message);
-	}
-	if (mgr->stat.last_received_info_message) linphone_info_message_destroy(mgr->stat.last_received_info_message);
-	if (mgr->lc){
-		const char *record_file=linphone_core_get_record_file(mgr->lc);
+LinphoneCoreManager* linphone_core_manager_new( const char* rc_file) {
+	return linphone_core_manager_new2(rc_file, TRUE);
+}
 
-		if (!liblinphone_tester_keep_record_files && record_file){
-			if ((bc_get_number_of_failures()-mgr->number_of_cunit_error_at_creation)>0) {
-				ms_message ("Test has failed, keeping recorded file [%s]",record_file);
-			} else {
+
+void linphone_core_manager_stop(LinphoneCoreManager *mgr){
+	if (mgr->lc) {
+		const char *record_file = linphone_core_get_record_file(mgr->lc);
+		char *chatdb = ms_strdup(linphone_core_get_chat_database_path(mgr->lc));
+		if (!liblinphone_tester_keep_record_files && record_file && ortp_file_exist(record_file)==0) {
+			if ((bc_get_number_of_failures() - mgr->number_of_bcunit_error_at_creation)>0) {
+				ms_error("Test has failed, keeping recorded file [%s]", record_file);
+			}
+			else {
 				unlink(record_file);
 			}
 		}
 		linphone_core_destroy(mgr->lc);
+		if (chatdb) {
+			if (unlink(chatdb) != 0){
+				ms_error("Could not delete %s: %s", chatdb, strerror(errno));
+			}
+			ms_free(chatdb);
+		}
+		mgr->lc = NULL;
 	}
+}
+
+void linphone_core_manager_uninit(LinphoneCoreManager *mgr) {
+	int old_log_level = ortp_get_log_level_mask(NULL);
+	linphone_core_set_log_level(ORTP_ERROR);
+	if (mgr->phone_alias) {
+		ms_free(mgr->phone_alias);
+	}
+	if (mgr->stat.last_received_chat_message) {
+		linphone_chat_message_unref(mgr->stat.last_received_chat_message);
+	}
+	if (mgr->stat.last_received_info_message) linphone_info_message_destroy(mgr->stat.last_received_info_message);
 	if (mgr->identity) {
 		linphone_address_destroy(mgr->identity);
 	}
 
 	manager_count--;
+	linphone_core_set_log_level(old_log_level);
+}
+
+void linphone_core_manager_wait_for_stun_resolution(LinphoneCoreManager *mgr) {
+	LinphoneNatPolicy *nat_policy = linphone_core_get_nat_policy(mgr->lc);
+	if ((nat_policy != NULL) && (linphone_nat_policy_get_stun_server(nat_policy) != NULL) &&
+		(linphone_nat_policy_stun_enabled(nat_policy) || linphone_nat_policy_turn_enabled(nat_policy)) &&
+		(linphone_nat_policy_ice_enabled(nat_policy))) {
+		/*before we go, ensure that the stun server is resolved, otherwise all ice related test will fail*/
+		BC_ASSERT_TRUE(wait_for_stun_resolution(mgr));
+	}
 }
 
 void linphone_core_manager_destroy(LinphoneCoreManager* mgr) {
+	linphone_core_manager_stop(mgr);
 	linphone_core_manager_uninit(mgr);
 	ms_free(mgr);
 }
 
 int liblinphone_tester_ipv6_available(void){
-	struct addrinfo *ai=bctbx_ip_address_to_addrinfo(AF_INET6,SOCK_STREAM,"2a01:e00::2",53);
+	if (liblinphonetester_ipv6) {
+		struct addrinfo *ai=bctbx_ip_address_to_addrinfo(AF_INET6,SOCK_STREAM,"2a01:e00::2",53);
+		if (ai){
+			struct sockaddr_storage ss;
+			struct addrinfo src;
+			socklen_t slen=sizeof(ss);
+			char localip[128];
+			int port=0;
+			belle_sip_get_src_addr_for(ai->ai_addr,(socklen_t)ai->ai_addrlen,(struct sockaddr*) &ss,&slen,4444);
+			src.ai_addr=(struct sockaddr*) &ss;
+			src.ai_addrlen=slen;
+			bctbx_addrinfo_to_ip_address(&src,localip, sizeof(localip),&port);
+			freeaddrinfo(ai);
+			return strcmp(localip,"::1")!=0;
+		}
+	}
+	return FALSE;
+}
+
+int liblinphone_tester_ipv4_available(void){
+	struct addrinfo *ai=bctbx_ip_address_to_addrinfo(AF_INET,SOCK_STREAM,"212.27.40.240",53);
 	if (ai){
 		struct sockaddr_storage ss;
 		struct addrinfo src;
@@ -446,10 +514,11 @@ int liblinphone_tester_ipv6_available(void){
 		src.ai_addrlen=slen;
 		bctbx_addrinfo_to_ip_address(&src,localip, sizeof(localip),&port);
 		freeaddrinfo(ai);
-		return strcmp(localip,"::1")!=0;
+		return strcmp(localip,"127.0.0.1")!=0;
 	}
 	return FALSE;
 }
+
 
 void liblinphone_tester_keep_accounts( int keep ){
 	liblinphone_tester_keep_accounts_flag = keep;
@@ -473,6 +542,7 @@ void liblinphone_tester_add_suites() {
 	bc_tester_add_suite(&tunnel_test_suite);
 	bc_tester_add_suite(&offeranswer_test_suite);
 	bc_tester_add_suite(&call_test_suite);
+	bc_tester_add_suite(&call_video_test_suite);
 	bc_tester_add_suite(&audio_bypass_suite);
 	bc_tester_add_suite(&multi_call_test_suite);
 	bc_tester_add_suite(&message_test_suite);
@@ -545,8 +615,8 @@ void liblinphone_tester_before_each(void) {
 
 static char* all_leaks_buffer = NULL;
 
-int liblinphone_tester_after_each(void) {
-	int err = 0;
+void liblinphone_tester_after_each(void) {
+
 	if (!liblinphone_tester_leak_detector_disabled){
 		int leaked_objects = belle_sip_object_get_object_count() - leaked_objects_count;
 		if (leaked_objects > 0) {
@@ -559,6 +629,7 @@ int liblinphone_tester_after_each(void) {
 			ms_error("%s", format);
 
 			all_leaks_buffer = ms_strcat_printf(all_leaks_buffer, "\n%s", format);
+			ms_free(format);
 		}
 
 		// prevent any future leaks
@@ -569,11 +640,9 @@ int liblinphone_tester_after_each(void) {
 			// if the test is NOT marked as leaking memory and it actually is, we should make it fail
 			if (!leaks_expected && leaked_objects > 0) {
 				BC_FAIL("This test is leaking memory!");
-				err = 1;
 				// and reciprocally
 			} else if (leaks_expected && leaked_objects == 0) {
 				BC_FAIL("This test is not leaking anymore, please remove LeaksMemory tag!");
-				// err = 1; // do not force fail actually, because it can be some false positive warning
 			}
 		}
 	}
@@ -581,7 +650,6 @@ int liblinphone_tester_after_each(void) {
 	if (manager_count != 0) {
 		ms_fatal("%d Linphone core managers are still alive!", manager_count);
 	}
-	return err;
 }
 
 void liblinphone_tester_uninit(void) {
@@ -612,20 +680,33 @@ static void check_ice_from_rtp(LinphoneCall *c1, LinphoneCall *c2, LinphoneStrea
 		return;
 	}
 
-
 	if (linphone_call_get_audio_stats(c1)->ice_state == LinphoneIceStateHostConnection && media_stream_started(ms)) {
-		char ip[16];
-		char port[8];
-		getnameinfo((const struct sockaddr *)&c1->audiostream->ms.sessions.rtp_session->rtp.gs.rem_addr
-					, c1->audiostream->ms.sessions.rtp_session->rtp.gs.rem_addrlen
-					, ip
-					, sizeof(ip)
-					, port
-					, sizeof(port)
-					, NI_NUMERICHOST|NI_NUMERICSERV);
-		BC_ASSERT_STRING_EQUAL(ip, c2->media_localip);
+		struct sockaddr_storage remaddr;
+		socklen_t remaddrlen = sizeof(remaddr);
+		char ip[NI_MAXHOST] = { 0 };
+		int port = 0;
+		SalMediaDescription *result_desc;
+		char *expected_addr = NULL;
+
+		const LinphoneCallParams *cp1 = linphone_call_get_current_params(c1);
+		const LinphoneCallParams *cp2 = linphone_call_get_current_params(c2);
+		if (cp1->update_call_when_ice_completed && cp2->update_call_when_ice_completed) {
+			memset(&remaddr, 0, remaddrlen);
+			result_desc = sal_call_get_final_media_description(c2->op);
+			expected_addr = result_desc->streams[0].rtp_addr;
+			if (expected_addr[0] == '\0') expected_addr = result_desc->addr;
+			if ((strchr(expected_addr, ':') == NULL) && (c1->audiostream->ms.sessions.rtp_session->rtp.gs.rem_addr.ss_family == AF_INET6)) {
+				bctbx_sockaddr_ipv6_to_ipv4((struct sockaddr *)&c1->audiostream->ms.sessions.rtp_session->rtp.gs.rem_addr, (struct sockaddr *)&remaddr, &remaddrlen);
+			} else {
+				memcpy(&remaddr, &c1->audiostream->ms.sessions.rtp_session->rtp.gs.rem_addr, c1->audiostream->ms.sessions.rtp_session->rtp.gs.rem_addrlen);
+			}
+			bctbx_sockaddr_to_ip_address((struct sockaddr *)&remaddr, remaddrlen, ip, sizeof(ip), &port);
+
+			BC_ASSERT_STRING_EQUAL(ip, expected_addr);
+		}
 	}
 }
+
 bool_t check_ice(LinphoneCoreManager* caller, LinphoneCoreManager* callee, LinphoneIceState state) {
 	LinphoneCall *c1,*c2;
 	bool_t audio_success=FALSE;
@@ -775,21 +856,25 @@ static void linphone_conference_server_registration_state_changed(LinphoneCore *
 LinphoneConferenceServer* linphone_conference_server_new(const char *rc_file, bool_t do_registration) {
 	LinphoneConferenceServer *conf_srv = (LinphoneConferenceServer *)ms_new0(LinphoneConferenceServer, 1);
 	LinphoneCoreManager *lm = (LinphoneCoreManager *)conf_srv;
-
+	LinphoneProxyConfig *proxy;
 	conf_srv->vtable = linphone_core_v_table_new();
 	conf_srv->vtable->call_state_changed = linphone_conference_server_call_state_changed;
 	conf_srv->vtable->refer_received = linphone_conference_server_refer_received;
 	conf_srv->vtable->registration_state_changed = linphone_conference_server_registration_state_changed;
 	conf_srv->vtable->user_data = conf_srv;
 	conf_srv->reg_state = LinphoneRegistrationNone;
-	linphone_core_manager_init(lm, rc_file);
+	linphone_core_manager_init(lm, rc_file,NULL);
+	if (!do_registration) {
+		proxy = linphone_core_get_default_proxy_config(lm->lc);
+		linphone_proxy_config_edit(proxy);
+		linphone_proxy_config_enable_register(proxy,FALSE);
+		linphone_proxy_config_done(proxy);
+	}
 	linphone_core_add_listener(lm->lc, conf_srv->vtable);
 	linphone_core_manager_start(lm, do_registration);
 	return conf_srv;
 }
 
 void linphone_conference_server_destroy(LinphoneConferenceServer *conf_srv) {
-	linphone_core_manager_uninit((LinphoneCoreManager *)conf_srv);
-	linphone_core_v_table_destroy(conf_srv->vtable);
-	ms_free(conf_srv);
+	linphone_core_manager_destroy((LinphoneCoreManager *)conf_srv);
 }

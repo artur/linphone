@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 /* Linphone Sound Daemon: is a lightweight utility to play sounds to speaker during a conversation.
@@ -22,7 +22,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  simultaneous sound access.
 */
 
-#include "linphonecore_utils.h"
+#include "linphone/core_utils.h"
 #include "private.h"
 #include "mediastreamer2/msticker.h"
 #include "mediastreamer2/mssndcard.h"
@@ -77,7 +77,10 @@ static MSSndCardDesc proxycard={
 	NULL,
 	/*create_reader*/ NULL,
 	create_writer,
-	/*uninit,*/
+	NULL, /*uninit*/
+	NULL, /* duplicate */
+	NULL, /*unload */
+	NULL /*usage_hint */
 };
 
 LsdPlayer *linphone_sound_daemon_get_player(LinphoneSoundDaemon *obj){

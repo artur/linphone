@@ -15,15 +15,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 
-#ifdef IN_LINPHONE
-#include "linphonecore.h"
-#else
-#include "linphone/linphonecore.h"
-#endif
+#include "linphone/core.h"
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -184,13 +180,13 @@ int main(int argc, char *argv[]){
 
 	/* main loop for receiving notifications and doing background linphonecore work: */
 	while(running){
-		const MSList * iterator;
+		const bctbx_list_t * iterator;
 		linphone_core_iterate(lc);
 		ms_usleep(50000);
 		if (print_stats) {
 			ms_message("*********************************");
-			ms_message("*Current number of calls   [%10i]  *",ms_list_size(linphone_core_get_calls(lc)));
-			ms_message("*Number of calls until now [%10i]  *",ms_list_size(linphone_core_get_call_logs(lc)));
+			ms_message("*Current number of calls   [%10u]  *", (unsigned int)bctbx_list_size(linphone_core_get_calls(lc)));
+			ms_message("*Number of calls until now [%10u]  *", (unsigned int)bctbx_list_size(linphone_core_get_call_logs(lc)));
 			ms_message("*********************************");
 			print_stats=FALSE;
 		}

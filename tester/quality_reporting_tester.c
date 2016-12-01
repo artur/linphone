@@ -17,7 +17,7 @@
 */
 
 #include <stdio.h>
-#include "linphonecore.h"
+#include "linphone/core.h"
 #include "private.h"
 #include "liblinphone_tester.h"
 
@@ -165,7 +165,7 @@ static void quality_reporting_not_sent_if_call_not_started(void) {
 	BC_ASSERT_TRUE(wait_for_until(marie->lc,pauline->lc,&marie->stat.number_of_LinphoneCallError,1, 10000));
 	BC_ASSERT_EQUAL(marie->stat.number_of_LinphoneCallError,1, int, "%d");
 
-	if (ms_list_size(linphone_core_get_call_logs(marie->lc))>0) {
+	if (bctbx_list_size(linphone_core_get_call_logs(marie->lc))>0) {
 		out_call_log=(LinphoneCallLog*)(linphone_core_get_call_logs(marie->lc)->data);
 		BC_ASSERT_PTR_NOT_NULL(out_call_log);
 		BC_ASSERT_EQUAL(linphone_call_log_get_status(out_call_log),LinphoneCallAborted, int, "%d");
@@ -400,19 +400,21 @@ static void quality_reporting_interval_report_video_and_rtt(void) {
 		BC_ASSERT_PTR_NOT_NULL(pauline_chat_room);
 		if (pauline_chat_room) {
 			const char* message = "Lorem Ipsum Belledonnum Communicatum";
-			int i;
+			size_t i;
 			LinphoneChatMessage* rtt_message = linphone_chat_room_create_message(pauline_chat_room,NULL);
 			LinphoneChatRoom *marie_chat_room = linphone_call_get_chat_room(call_marie);
 
 			for (i = 0; i < strlen(message); i++) {
 				linphone_chat_message_put_char(rtt_message, message[i]);
-				BC_ASSERT_TRUE(wait_for_until(pauline->lc, marie->lc, &marie->stat.number_of_LinphoneIsComposingActiveReceived, i+1, 1000));
+				BC_ASSERT_TRUE(wait_for_until(pauline->lc, marie->lc, &marie->stat.number_of_LinphoneIsComposingActiveReceived, (int)i+1, 1000));
 				BC_ASSERT_EQUAL(linphone_chat_room_get_char(marie_chat_room), message[i], char, "%c");
 			}
 			linphone_chat_room_send_chat_message(pauline_chat_room, rtt_message);
 		}
 
 		end_call(marie, pauline);
+		/*wait for publish triggered by the end of call to be completed*/
+		wait_for_until(marie->lc,pauline->lc,NULL,0,6000);
 	}
 
 	linphone_call_params_destroy(marie_params);

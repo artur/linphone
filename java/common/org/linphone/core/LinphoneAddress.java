@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package org.linphone.core;
 
@@ -24,7 +24,7 @@ import java.util.Vector;
  * Object that represents a SIP address.
  * The LinphoneAddress is an opaque object to represents SIP addresses, ie the content of SIP's 'from' and 'to' headers. 
  * A SIP address is made of display name, username, domain name, port, and various uri headers (such as tags). 
- * It looks like 'Alice <sip:alice@example.net>'. The LinphoneAddress has methods to extract and manipulate all parts of the address. 
+ * It looks like 'Alice &lt;sip:alice@example.net&gt;'. The LinphoneAddress has methods to extract and manipulate all parts of the address. 
  * When some part of the address (for example the username) is empty, the accessor methods return null.
  * <br> Can be instanciated using both  {@link LinphoneCoreFactory#createLinphoneAddress(String, String, String)} or {@link LinphoneCoreFactory#createLinphoneAddress(String)} 
  * @author jehanmonnier

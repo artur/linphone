@@ -15,8 +15,8 @@
  */
 
 #include "contact_providers_priv.h"
-#include "contactprovider.h"
-#include <linphonecore.h>
+#include "linphone/contactprovider.h"
+#include <linphone/core.h>
 
 /* ############################ *
  * LinphoneContactSearchRequest *
@@ -130,6 +130,7 @@ BELLE_SIP_INSTANCIATE_CUSTOM_VPTR_BEGIN(LinphoneContactProvider)
 		(belle_sip_object_destroy_t) contact_provider_destroy,
 		NULL,/*no clone*/
 		NULL,/*no marshal*/
+		BELLE_SIP_DEFAULT_BUFSIZE_HINT
 	},
 	"",
 	// Pure virtual

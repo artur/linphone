@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package org.linphone.core;
 
@@ -31,8 +31,7 @@ import java.util.Vector;
 public interface LinphoneFriend {
 	/**
 	 * Enum controlling behavior for incoming subscription request. 
-	 *	Use by {@link LinphoneFriend#setIncSubscribePolicy()}
-	 *
+	 * Used by {@link setIncSubscribePolicy(SubscribePolicy)}
 	 */
 	static class SubscribePolicy {
 
@@ -109,18 +108,28 @@ public interface LinphoneFriend {
 	 */
 	boolean isPresenceReceived();
 	/**
-	 * @brief Get the status of a friend
+	 * Get the status of a friend
 	 * @return OnlineStatus
-	 * @deprecated Use getPresenceModel() instead
+	 * @deprecated Use getPresenceModelForUri() instead
 	 */
+	@Deprecated
 	OnlineStatus getStatus();
 	/**
-	 * @brief Get the presence information of a friend
+	 * Get the presence information of a friend
 	 * @return A #PresenceModel object, or null if the friend do not have presence information (in which case he is considered offline)
+	 * @deprecated Use getPresenceModelForUri() instead
 	 */
+	@Deprecated
 	PresenceModel getPresenceModel();
+	
 	/**
-	 * @brief Set the presence information of a friend
+	 * Get the presence information for a specific uri (phone number or sip address)
+	 * @return A #PresenceModel object or null
+	 */
+	PresenceModel getPresenceModelForUri(String uri);
+	
+	/**
+	 * Set the presence information of a friend
 	 * @param presenceModel A #PresenceModel object
 	 */
 	void setPresenceModel(PresenceModel presenceModel);
@@ -162,10 +171,30 @@ public interface LinphoneFriend {
 	 */
 	void setName(String name);
 	/**
-	 * get name of this friend
+	 * get a name of this friend
 	 * @return
 	 */
 	String getName();
+	/**
+	 * Set a family name for this friend
+	 * @param name
+	 */
+	void setFamilyName(String name);
+	/**
+	 * get a family name of this friend
+	 * @return
+	 */
+	String getFamilyName();
+	/**
+	 * Set a given name for this friend
+	 * @param name
+	 */
+	void setGivenName(String name);
+	/**
+	 * get a given name of this friend
+	 * @return
+	 */
+	String getGivenName();
 	/**
 	 * Set an organization for this friend
 	 * @param organization
@@ -184,4 +213,9 @@ public interface LinphoneFriend {
 	String[] getPhoneNumbers();
 	void addPhoneNumber(String phone);
 	void removePhoneNumber(String phone);
+	
+	/**
+	 * Returns true if friend has already been added in a LinphoneFriendList, false otherwise
+	 */
+	boolean isAlreadyPresentInFriendList();
 }

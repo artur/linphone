@@ -16,7 +16,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 ############################################################################
 
@@ -30,30 +30,20 @@ if(NOT WIN32)
 endif()
 
 
-set(LINPHONE_HEADER_FILES
-	account_creator.h
-	buffer.h
-	call_log.h
-	call_params.h
+set(LINPHONE_PRIVATE_HEADER_FILES
+	bellesip_sal/sal_impl.h
 	carddav.h
-	conference.h
-	content.h
-	event.h
-	friendlist.h
-	linphonecore.h
-	linphonecore_utils.h
-	linphonefriend.h
-	linphonepresence.h
-	linphone_proxy_config.h
-	linphone_tunnel.h
+	conference_private.h
+	contact_providers_priv.h
+	enum.h
+	lime.h
 	lpc2xml.h
-	lpconfig.h
-	ringtoneplayer.h
-	sipsetup.h
+	offeranswer.h
+	private.h
+	quality_reporting.h
 	sqlite3_bctbx_vfs.h
+	vcard_private.h
 	xml2lpc.h
-	xmlrpc.h
-	vcard.h
 )
 
 set(LINPHONE_SOURCE_FILES_C
@@ -62,7 +52,6 @@ set(LINPHONE_SOURCE_FILES_C
 	authentication.c
 	bellesip_sal/sal_address_impl.c
 	bellesip_sal/sal_impl.c
-	bellesip_sal/sal_impl.h
 	bellesip_sal/sal_op_call.c
 	bellesip_sal/sal_op_call_transfer.c
 	bellesip_sal/sal_op_events.c
@@ -82,31 +71,31 @@ set(LINPHONE_SOURCE_FILES_C
 	chat_file_transfer.c
 	contactprovider.c
 	content.c
+	dial_plan.c
 	dict.c
 	ec-calibrator.c
+	echo-tester.c
 	enum.c
-	enum.h
 	event.c
 	friend.c
 	friendlist.c
 	info.c
-	ldap/ldapprovider.c
+	ldapprovider.c
 	lime.c
+	im_encryption_engine.c
 	linphonecall.c
 	linphonecore.c
 	linphone_tunnel_config.c
 	localplayer.c
 	lpc2xml.c
 	lpconfig.c
-	lpconfig.h
 	lsd.c
 	message_storage.c
 	misc.c
+	nat_policy.c
 	offeranswer.c
-	offeranswer.h
 	player.c
 	presence.c
-	private.h
 	proxy.c
 	quality_reporting.c
 	remote_provisioning.c
@@ -198,7 +187,7 @@ apply_compile_flags(LINPHONE_SOURCE_FILES_CXX "CPP" "CXX")
 apply_compile_flags(LINPHONE_SOURCE_FILES_OBJC "CPP" "OBJC")
 
 if(ENABLE_STATIC)
-	add_library(linphone-static STATIC ${LINPHONE_HEADER_FILES} ${LINPHONE_SOURCE_FILES_C} ${LINPHONE_SOURCE_FILES_CXX} ${LINPHONE_SOURCE_FILES_OBJC})
+	add_library(linphone-static STATIC ${LINPHONE_HEADER_FILES} ${LINPHONE_PRIVATE_HEADER_FILES} ${LINPHONE_SOURCE_FILES_C} ${LINPHONE_SOURCE_FILES_CXX} ${LINPHONE_SOURCE_FILES_OBJC})
 	set_target_properties(linphone-static PROPERTIES OUTPUT_NAME linphone)
 	add_dependencies(linphone-static liblinphone-git-version)
 	target_link_libraries(linphone-static ${LIBS})
@@ -214,12 +203,12 @@ if(ENABLE_STATIC)
 	)
 endif()
 if(ENABLE_SHARED)
-	add_library(linphone SHARED ${LINPHONE_HEADER_FILES} ${LINPHONE_SOURCE_FILES_C} ${LINPHONE_SOURCE_FILES_CXX} ${LINPHONE_SOURCE_FILES_OBJC})
+	add_library(linphone SHARED ${LINPHONE_HEADER_FILES} ${LINPHONE_PRIVATE_HEADER_FILES} ${LINPHONE_SOURCE_FILES_C} ${LINPHONE_SOURCE_FILES_CXX} ${LINPHONE_SOURCE_FILES_OBJC})
 
 	if(BELCARD_FOUND)
 		if(APPLE)
-        	        set_target_properties(linphone PROPERTIES LINK_FLAGS "-stdlib=libc++")
-        	endif()
+	        set_target_properties(linphone PROPERTIES LINK_FLAGS "-stdlib=libc++")
+    	endif()
 	endif()
 
 	set_target_properties(linphone PROPERTIES LINKER_LANGUAGE CXX)
@@ -228,7 +217,7 @@ if(ENABLE_SHARED)
 		set_target_properties(linphone PROPERTIES SOVERSION ${LINPHONE_SO_VERSION})
 	endif()
 	add_dependencies(linphone liblinphone-git-version)
-	target_link_libraries(linphone ${LIBS})
+	target_link_libraries(linphone PRIVATE ${LIBS})
 	if(WIN32 AND CMAKE_SYSTEM_NAME STREQUAL "WindowsPhone" AND NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
 		set_target_properties(linphone PROPERTIES PREFIX "lib")
 	elseif(ANDROID)
@@ -236,8 +225,8 @@ if(ENABLE_SHARED)
 		add_dependencies(linphone linphonecore-jni-header)
 	endif()
 	if(MSVC)
-		if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-			install(FILES ${CMAKE_CURRENT_BINARY_DIR}/Debug/linphone.pdb
+		if(CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+			install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/linphone.pdb
 				DESTINATION ${CMAKE_INSTALL_BINDIR}
 				PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
 			)
@@ -269,11 +258,4 @@ if(ICONV_FOUND)
 	endif()
 endif()
 
-install(FILES ${LINPHONE_HEADER_FILES}
-	DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/linphone
-	PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-)
-
-if(ENABLE_DOC)
-	add_subdirectory(help)
-endif()
+add_subdirectory(help)

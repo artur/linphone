@@ -17,8 +17,8 @@
 */
 
 
-#include "linphonecore.h"
-#include "lpconfig.h"
+#include "linphone/core.h"
+#include "linphone/lpconfig.h"
 #include "private.h"
 #include "liblinphone_tester.h"
 
@@ -29,10 +29,10 @@ static void subscribe_forking(void) {
 	LinphoneContent* content;
 	LinphoneEvent *lev;
 	int expires=  600;
-	MSList* lcs=ms_list_append(NULL,marie->lc);
+	bctbx_list_t* lcs=bctbx_list_append(NULL,marie->lc);
 
-	lcs=ms_list_append(lcs,pauline->lc);
-	lcs=ms_list_append(lcs,pauline2->lc);
+	lcs=bctbx_list_append(lcs,pauline->lc);
+	lcs=bctbx_list_append(lcs,pauline2->lc);
 
 	content = linphone_core_create_content(marie->lc);
 	linphone_content_set_type(content,"application");
@@ -41,7 +41,7 @@ static void subscribe_forking(void) {
 
 	lev=linphone_core_subscribe(marie->lc,pauline->identity,"dodo",expires,content);
 
-	BC_ASSERT_TRUE(wait_for_list(lcs,&marie->stat.number_of_LinphoneSubscriptionOutgoingInit,1,1000));
+	BC_ASSERT_TRUE(wait_for_list(lcs,&marie->stat.number_of_LinphoneSubscriptionOutgoingProgress,1,1000));
 	BC_ASSERT_TRUE(wait_for_list(lcs,&pauline->stat.number_of_LinphoneSubscriptionIncomingReceived,1,3000));
 	BC_ASSERT_TRUE(wait_for_list(lcs,&pauline2->stat.number_of_LinphoneSubscriptionIncomingReceived,1,1000));
 	BC_ASSERT_TRUE(wait_for_list(lcs,&marie->stat.number_of_LinphoneSubscriptionActive,1,1000));
@@ -55,20 +55,20 @@ static void subscribe_forking(void) {
 	linphone_core_manager_destroy(marie);
 	linphone_core_manager_destroy(pauline);
 	linphone_core_manager_destroy(pauline2);
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 }
 
 static void message_forking(void) {
 	LinphoneCoreManager* marie = linphone_core_manager_new( "marie_rc");
 	LinphoneCoreManager* pauline = linphone_core_manager_new( transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc");
 	LinphoneCoreManager* marie2 = linphone_core_manager_new( "marie_rc");
-	MSList* lcs=ms_list_append(NULL,marie->lc);
+	bctbx_list_t* lcs=bctbx_list_append(NULL,marie->lc);
 	LinphoneChatRoom* chat_room = linphone_core_get_chat_room(pauline->lc, marie->identity);
 	LinphoneChatMessage* message = linphone_chat_room_create_message(chat_room,"Bli bli bli \n blu");
 	LinphoneChatMessageCbs *cbs = linphone_chat_message_get_callbacks(message);
 
-	lcs=ms_list_append(lcs,pauline->lc);
-	lcs=ms_list_append(lcs,marie2->lc);
+	lcs=bctbx_list_append(lcs,pauline->lc);
+	lcs=bctbx_list_append(lcs,marie2->lc);
 
 	linphone_chat_message_cbs_set_msg_state_changed(cbs, liblinphone_tester_chat_message_msg_state_changed);
 	linphone_chat_room_send_chat_message(chat_room, message);
@@ -84,7 +84,7 @@ static void message_forking(void) {
 	linphone_core_manager_destroy(marie);
 	linphone_core_manager_destroy(marie2);
 	linphone_core_manager_destroy(pauline);
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 }
 
 static void message_forking_with_unreachable_recipients(void) {
@@ -92,14 +92,14 @@ static void message_forking_with_unreachable_recipients(void) {
 	LinphoneCoreManager* pauline = linphone_core_manager_new( transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc");
 	LinphoneCoreManager* marie2 = linphone_core_manager_new( "marie_rc");
 	LinphoneCoreManager* marie3 = linphone_core_manager_new( "marie_rc");
-	MSList* lcs=ms_list_append(NULL,marie->lc);
+	bctbx_list_t* lcs=bctbx_list_append(NULL,marie->lc);
 	LinphoneChatRoom* chat_room = linphone_core_get_chat_room(pauline->lc, marie->identity);
 	LinphoneChatMessage* message = linphone_chat_room_create_message(chat_room,"Bli bli bli \n blu");
 	LinphoneChatMessageCbs *cbs = linphone_chat_message_get_callbacks(message);
 
-	lcs=ms_list_append(lcs,pauline->lc);
-	lcs=ms_list_append(lcs,marie2->lc);
-	lcs=ms_list_append(lcs,marie3->lc);
+	lcs=bctbx_list_append(lcs,pauline->lc);
+	lcs=bctbx_list_append(lcs,marie2->lc);
+	lcs=bctbx_list_append(lcs,marie3->lc);
 
 	/*the following lines are to workaround a problem with messages sent by a previous test (Message forking) that arrive together with REGISTER responses,
 	 * because the ForkMessageContext is not terminated at flexisip side if Message forking test is passing fast*/
@@ -134,7 +134,7 @@ static void message_forking_with_unreachable_recipients(void) {
 	linphone_core_manager_destroy(marie2);
 	linphone_core_manager_destroy(marie3);
 	linphone_core_manager_destroy(pauline);
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 }
 
 static void message_forking_with_all_recipients_unreachable(void) {
@@ -142,14 +142,14 @@ static void message_forking_with_all_recipients_unreachable(void) {
 	LinphoneCoreManager* pauline = linphone_core_manager_new( transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc");
 	LinphoneCoreManager* marie2 = linphone_core_manager_new( "marie_rc");
 	LinphoneCoreManager* marie3 = linphone_core_manager_new( "marie_rc");
-	MSList* lcs=ms_list_append(NULL,marie->lc);
+	bctbx_list_t* lcs=bctbx_list_append(NULL,marie->lc);
 	LinphoneChatRoom* chat_room = linphone_core_get_chat_room(pauline->lc, marie->identity);
 	LinphoneChatMessage* message = linphone_chat_room_create_message(chat_room,"Bli bli bli \n blu");
 	LinphoneChatMessageCbs *cbs = linphone_chat_message_get_callbacks(message);
 
-	lcs=ms_list_append(lcs,pauline->lc);
-	lcs=ms_list_append(lcs,marie2->lc);
-	lcs=ms_list_append(lcs,marie3->lc);
+	lcs=bctbx_list_append(lcs,pauline->lc);
+	lcs=bctbx_list_append(lcs,marie2->lc);
+	lcs=bctbx_list_append(lcs,marie3->lc);
 
 	/*the following lines are to workaround a problem with messages sent by a previous test (Message forking) that arrive together with REGISTER responses,
 	 * because the ForkMessageContext is not terminated at flexisip side if Message forking test is passing fast*/
@@ -193,7 +193,7 @@ static void message_forking_with_all_recipients_unreachable(void) {
 	linphone_core_manager_destroy(marie2);
 	linphone_core_manager_destroy(marie3);
 	linphone_core_manager_destroy(pauline);
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 }
 
 static void call_forking(void){
@@ -201,11 +201,11 @@ static void call_forking(void){
 	LinphoneCoreManager* pauline = linphone_core_manager_new( transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc");
 	LinphoneCoreManager* marie2 = linphone_core_manager_new( "marie_rc");
 	LinphoneCoreManager* marie3 = linphone_core_manager_new( "marie_rc");
-	MSList* lcs=ms_list_append(NULL,pauline->lc);
+	bctbx_list_t* lcs=bctbx_list_append(NULL,pauline->lc);
 
-	lcs=ms_list_append(lcs,marie->lc);
-	lcs=ms_list_append(lcs,marie2->lc);
-	lcs=ms_list_append(lcs,marie3->lc);
+	lcs=bctbx_list_append(lcs,marie->lc);
+	lcs=bctbx_list_append(lcs,marie2->lc);
+	lcs=bctbx_list_append(lcs,marie3->lc);
 
 	linphone_core_set_user_agent(marie->lc,"Natted Linphone",NULL);
 	linphone_core_set_user_agent(marie2->lc,"Natted Linphone",NULL);
@@ -239,7 +239,7 @@ static void call_forking(void){
 	linphone_core_manager_destroy(marie);
 	linphone_core_manager_destroy(marie2);
 	linphone_core_manager_destroy(marie3);
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 }
 
 static void call_forking_with_urgent_reply(void){
@@ -247,10 +247,10 @@ static void call_forking_with_urgent_reply(void){
 	LinphoneCoreManager* pauline = linphone_core_manager_new( transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc");
 	LinphoneCoreManager* marie2 = linphone_core_manager_new( "marie_rc");
 	LinphoneCoreManager* marie3 = linphone_core_manager_new( "marie_rc");
-	MSList* lcs=ms_list_append(NULL,pauline->lc);
-	lcs=ms_list_append(lcs,marie->lc);
-	lcs=ms_list_append(lcs,marie2->lc);
-	lcs=ms_list_append(lcs,marie3->lc);
+	bctbx_list_t* lcs=bctbx_list_append(NULL,pauline->lc);
+	lcs=bctbx_list_append(lcs,marie->lc);
+	lcs=bctbx_list_append(lcs,marie2->lc);
+	lcs=bctbx_list_append(lcs,marie3->lc);
 
 	if (linphone_core_media_encryption_supported(pauline->lc,LinphoneMediaEncryptionSRTP)) {
 		linphone_core_set_user_agent(marie->lc,"Natted Linphone",NULL);
@@ -284,7 +284,7 @@ static void call_forking_with_urgent_reply(void){
 	linphone_core_manager_destroy(marie);
 	linphone_core_manager_destroy(marie2);
 	linphone_core_manager_destroy(marie3);
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 }
 
 static void call_forking_cancelled(void){
@@ -292,11 +292,11 @@ static void call_forking_cancelled(void){
 	LinphoneCoreManager* pauline = linphone_core_manager_new( transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc");
 	LinphoneCoreManager* marie2 = linphone_core_manager_new( "marie_rc");
 	LinphoneCoreManager* marie3 = linphone_core_manager_new( "marie_rc");
-	MSList* lcs=ms_list_append(NULL,pauline->lc);
+	bctbx_list_t* lcs=bctbx_list_append(NULL,pauline->lc);
 
-	lcs=ms_list_append(lcs,marie->lc);
-	lcs=ms_list_append(lcs,marie2->lc);
-	lcs=ms_list_append(lcs,marie3->lc);
+	lcs=bctbx_list_append(lcs,marie->lc);
+	lcs=bctbx_list_append(lcs,marie2->lc);
+	lcs=bctbx_list_append(lcs,marie3->lc);
 
 	linphone_core_set_user_agent(marie->lc,"Natted Linphone",NULL);
 	linphone_core_set_user_agent(marie2->lc,"Natted Linphone",NULL);
@@ -324,7 +324,7 @@ static void call_forking_cancelled(void){
 	linphone_core_manager_destroy(marie);
 	linphone_core_manager_destroy(marie2);
 	linphone_core_manager_destroy(marie3);
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 }
 
 static void call_forking_declined(bool_t declined_globaly){
@@ -332,11 +332,11 @@ static void call_forking_declined(bool_t declined_globaly){
 	LinphoneCoreManager* pauline = linphone_core_manager_new( transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc");
 	LinphoneCoreManager* marie2 = linphone_core_manager_new( "marie_rc");
 	LinphoneCoreManager* marie3 = linphone_core_manager_new( "marie_rc");
-	MSList* lcs=ms_list_append(NULL,pauline->lc);
+	bctbx_list_t* lcs=bctbx_list_append(NULL,pauline->lc);
 
-	lcs=ms_list_append(lcs,marie->lc);
-	lcs=ms_list_append(lcs,marie2->lc);
-	lcs=ms_list_append(lcs,marie3->lc);
+	lcs=bctbx_list_append(lcs,marie->lc);
+	lcs=bctbx_list_append(lcs,marie2->lc);
+	lcs=bctbx_list_append(lcs,marie3->lc);
 
 	linphone_core_set_user_agent(marie->lc,"Natted Linphone",NULL);
 	linphone_core_set_user_agent(marie2->lc,"Natted Linphone",NULL);
@@ -379,7 +379,7 @@ static void call_forking_declined(bool_t declined_globaly){
 	linphone_core_manager_destroy(marie);
 	linphone_core_manager_destroy(marie2);
 	linphone_core_manager_destroy(marie3);
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 }
 
 static void call_forking_declined_globaly(void){
@@ -391,7 +391,7 @@ static void call_forking_declined_localy(void){
 }
 
 static void call_forking_with_push_notification_single(void){
-	MSList* lcs;
+	bctbx_list_t* lcs;
 	LinphoneCoreManager* marie = linphone_core_manager_new2( "marie_rc", FALSE);
 	LinphoneCoreManager* pauline = linphone_core_manager_new2( transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc",FALSE);
 	int dummy=0;
@@ -402,8 +402,8 @@ static void call_forking_with_push_notification_single(void){
 		linphone_core_get_default_proxy_config(marie->lc),
 		"app-id=org.linphonetester;pn-tok=aaabbb;pn-type=apple;pn-msg-str=33;pn-call-str=34;");
 
-	lcs=ms_list_append(NULL,pauline->lc);
-	lcs=ms_list_append(lcs,marie->lc);
+	lcs=bctbx_list_append(NULL,pauline->lc);
+	lcs=bctbx_list_append(lcs,marie->lc);
 
 	BC_ASSERT_TRUE(wait_for_list(lcs,&pauline->stat.number_of_LinphoneRegistrationOk,1,5000));
 	BC_ASSERT_TRUE(wait_for_list(lcs,&marie->stat.number_of_LinphoneRegistrationOk,1,5000));
@@ -437,7 +437,7 @@ static void call_forking_with_push_notification_single(void){
 
 	linphone_core_manager_destroy(pauline);
 	linphone_core_manager_destroy(marie);
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 }
 
 static void call_forking_with_push_notification_multiple(void){
@@ -445,10 +445,10 @@ static void call_forking_with_push_notification_multiple(void){
 	LinphoneCoreManager* pauline = linphone_core_manager_new( transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc");
 	LinphoneCoreManager* marie2 = linphone_core_manager_new( "marie_rc");
 
-	MSList* lcs=ms_list_append(NULL,pauline->lc);
+	bctbx_list_t* lcs=bctbx_list_append(NULL,pauline->lc);
 
-	lcs=ms_list_append(lcs,marie->lc);
-	lcs=ms_list_append(lcs,marie2->lc);
+	lcs=bctbx_list_append(lcs,marie->lc);
+	lcs=bctbx_list_append(lcs,marie2->lc);
 
 	linphone_core_set_user_agent(marie->lc,"Natted Linphone",NULL);
 	linphone_core_set_user_agent(marie2->lc,"Natted Linphone",NULL);
@@ -497,11 +497,11 @@ static void call_forking_not_responded(void){
 	LinphoneCoreManager* pauline = linphone_core_manager_new( transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc");
 	LinphoneCoreManager* marie2 = linphone_core_manager_new( "marie_rc");
 	LinphoneCoreManager* marie3 = linphone_core_manager_new( "marie_rc");
-	MSList* lcs=ms_list_append(NULL,pauline->lc);
+	bctbx_list_t* lcs=bctbx_list_append(NULL,pauline->lc);
 
-	lcs=ms_list_append(lcs,marie->lc);
-	lcs=ms_list_append(lcs,marie2->lc);
-	lcs=ms_list_append(lcs,marie3->lc);
+	lcs=bctbx_list_append(lcs,marie->lc);
+	lcs=bctbx_list_append(lcs,marie2->lc);
+	lcs=bctbx_list_append(lcs,marie3->lc);
 
 	linphone_core_set_user_agent(marie->lc,"Natted Linphone",NULL);
 	linphone_core_set_user_agent(marie2->lc,"Natted Linphone",NULL);
@@ -527,14 +527,14 @@ static void call_forking_not_responded(void){
 	linphone_core_manager_destroy(marie);
 	linphone_core_manager_destroy(marie2);
 	linphone_core_manager_destroy(marie3);
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 }
 
 static void early_media_call_forking(void) {
 	LinphoneCoreManager* marie = linphone_core_manager_new("marie_early_rc");
 	LinphoneCoreManager* marie2 = linphone_core_manager_new("marie_early_rc");
 	LinphoneCoreManager* pauline = linphone_core_manager_new(transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc");
-	MSList *lcs=NULL;
+	bctbx_list_t *lcs=NULL;
 	LinphoneCallParams *params=linphone_core_create_call_params(pauline->lc, NULL);
 	LinphoneVideoPolicy pol;
 	int dummy=0;
@@ -560,9 +560,9 @@ static void early_media_call_forking(void) {
 	linphone_core_set_audio_port_range(marie2->lc,40200,40300);
 	linphone_core_set_video_port_range(marie2->lc,40400,40500);
 
-	lcs=ms_list_append(lcs,marie->lc);
-	lcs=ms_list_append(lcs,marie2->lc);
-	lcs=ms_list_append(lcs,pauline->lc);
+	lcs=bctbx_list_append(lcs,marie->lc);
+	lcs=bctbx_list_append(lcs,marie2->lc);
+	lcs=bctbx_list_append(lcs,pauline->lc);
 
 	linphone_call_params_enable_early_media_sending(params,TRUE);
 	linphone_call_params_enable_video(params,TRUE);
@@ -600,7 +600,7 @@ static void early_media_call_forking(void) {
 
 	end_call(pauline, marie);
 
-	ms_list_free(lcs);
+	bctbx_list_free(lcs);
 	linphone_core_manager_destroy(pauline);
 	linphone_core_manager_destroy(marie2);
 	linphone_core_manager_destroy(marie);
@@ -611,10 +611,10 @@ static void call_with_sips(void){
 		LinphoneCoreManager* marie = linphone_core_manager_new( "marie_sips_rc");
 		LinphoneCoreManager* pauline1 = linphone_core_manager_new( "pauline_sips_rc");
 		LinphoneCoreManager* pauline2 = linphone_core_manager_new( "pauline_tcp_rc");
-		MSList* lcs=ms_list_append(NULL,marie->lc);
+		bctbx_list_t* lcs=bctbx_list_append(NULL,marie->lc);
 
-		lcs=ms_list_append(lcs,pauline1->lc);
-		lcs=ms_list_append(lcs,pauline2->lc);
+		lcs=bctbx_list_append(lcs,pauline1->lc);
+		lcs=bctbx_list_append(lcs,pauline2->lc);
 
 		linphone_core_set_user_agent(marie->lc,"Natted Linphone",NULL);
 		linphone_core_set_user_agent(pauline1->lc,"Natted Linphone",NULL);
@@ -644,7 +644,7 @@ static void call_with_sips(void){
 		linphone_core_manager_destroy(marie);
 		linphone_core_manager_destroy(pauline1);
 		linphone_core_manager_destroy(pauline2);
-		ms_list_free(lcs);
+		bctbx_list_free(lcs);
 	}
 }
 
@@ -653,13 +653,13 @@ static void call_with_sips_not_achievable(void){
 		LinphoneCoreManager* pauline2 = linphone_core_manager_new( "pauline_tcp_rc");
 		LinphoneCoreManager* marie = linphone_core_manager_new( "marie_sips_rc");
 		LinphoneCoreManager* pauline1 = linphone_core_manager_new( "pauline_rc");
-		MSList* lcs=ms_list_append(NULL,marie->lc);
+		bctbx_list_t* lcs=bctbx_list_append(NULL,marie->lc);
 		LinphoneAddress *dest;
 		LinphoneCall *call;
 		const LinphoneErrorInfo *ei;
 
-		lcs=ms_list_append(lcs,pauline1->lc);
-		lcs=ms_list_append(lcs,pauline2->lc);
+		lcs=bctbx_list_append(lcs,pauline1->lc);
+		lcs=bctbx_list_append(lcs,pauline2->lc);
 
 
 		dest=linphone_address_clone(pauline1->identity);
@@ -675,11 +675,12 @@ static void call_with_sips_not_achievable(void){
 		if (ei){
 			BC_ASSERT_EQUAL(linphone_error_info_get_reason(ei), LinphoneReasonTemporarilyUnavailable, int, "%d");
 		}
+		linphone_call_unref(call);
 
 		linphone_core_manager_destroy(marie);
 		linphone_core_manager_destroy(pauline1);
 		linphone_core_manager_destroy(pauline2);
-		ms_list_free(lcs);
+		bctbx_list_free(lcs);
 	}
 }
 
@@ -925,6 +926,7 @@ static void file_transfer_message_external_body_to_rcs_client(void) {
 static void dos_module_trigger(void) {
 	LinphoneChatRoom *chat_room;
 	int i = 0;
+	int dummy = 0;
 	const char* passmsg = "This one should pass through";
 	int number_of_messge_to_send = 100;
 	LinphoneChatMessage * chat_msg = NULL;
@@ -941,12 +943,12 @@ static void dos_module_trigger(void) {
 		sprintf(msg, "Flood message number %i", i);
 		chat_msg = linphone_chat_room_create_message(chat_room, msg);
 		linphone_chat_room_send_chat_message(chat_room, chat_msg);
-		ms_usleep(10000);
+		wait_for_until(marie->lc, pauline->lc, &dummy, 1, 10);
 		i++;
 	} while (i < number_of_messge_to_send);
 	// At this point we should be banned for a minute
 
-	ms_usleep(65000000); // Wait several seconds to ensure we are not banned anymore
+	wait_for_until(marie->lc, pauline->lc, &dummy, 1, 65000);; // Wait several seconds to ensure we are not banned anymore
 	BC_ASSERT_LOWER(marie->stat.number_of_LinphoneMessageReceived, number_of_messge_to_send, int, "%d");
 
 	reset_counters(&marie->stat);
@@ -962,7 +964,7 @@ static void dos_module_trigger(void) {
 	linphone_core_manager_destroy(pauline);
 }
 
-
+#if HAVE_SIPP
 static void test_subscribe_notify_with_sipp_publisher(void) {
 	char *scen;
 	FILE * sipp_out;
@@ -1004,7 +1006,8 @@ static void test_subscribe_notify_with_sipp_publisher(void) {
 	linphone_core_manager_destroy(marie);
 	linphone_core_manager_destroy(pauline);
 }
-	//does not work because sipp seams not able to manage 2 call  id in case file
+
+//does not work because sipp seams not able to manage 2 call  id in case file
 #if 0
 static void test_subscribe_notify_with_sipp_publisher_double_publish(void) {
 	char *scen;
@@ -1046,6 +1049,7 @@ static void test_subscribe_notify_with_sipp_publisher_double_publish(void) {
 	linphone_core_manager_destroy(pauline);
 }
 #endif
+#endif
 
 static void test_publish_unpublish(void) {
 	LinphoneCoreManager* marie = linphone_core_manager_new( "marie_rc");
@@ -1066,7 +1070,7 @@ static void test_publish_unpublish(void) {
 static void test_list_subscribe (void) {
 	LinphoneCoreManager* marie = linphone_core_manager_new( "marie_rc");
 	LinphoneCoreManager* pauline = linphone_core_manager_new( "pauline_tcp_rc");
-	LinphoneCoreManager* laure = linphone_core_manager_new( "laure_rc");
+	LinphoneCoreManager* laure = linphone_core_manager_new( "laure_rc_udp");
 
 	char *list =	"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 					"<resource-lists xmlns=\"urn:ietf:params:xml:ns:resource-lists\"\n"
@@ -1074,12 +1078,13 @@ static void test_list_subscribe (void) {
 					"<list>\n"
 						"\t<entry uri=\"%s\" />\n"
 						"\t<entry uri=\"%s\" />\n"
+						"\t<entry uri=\"sip:+33952@toto.com;user=phone\" />\n"
 					"</list>\n"
 					"</resource-lists>\n";
 
 
 	LinphoneEvent *lev;
-	MSList* lcs=ms_list_append(NULL,marie->lc);
+	bctbx_list_t* lcs=bctbx_list_append(NULL,marie->lc);
 	char * pauline_uri=linphone_address_as_string_uri_only(pauline->identity);
 	char * laure_uri=linphone_address_as_string_uri_only(laure->identity);
 	char * subscribe_content = ms_strdup_printf(list,pauline_uri,laure_uri);
@@ -1091,8 +1096,8 @@ static void test_list_subscribe (void) {
 	ms_free(pauline_uri);
 	ms_free(laure_uri);
 
-	lcs=ms_list_append(lcs,pauline->lc);
-	lcs=ms_list_append(lcs,laure->lc);
+	lcs=bctbx_list_append(lcs,pauline->lc);
+	lcs=bctbx_list_append(lcs,laure->lc);
 
 	linphone_content_set_type(content,"application");
 	linphone_content_set_subtype(content,"resource-lists+xml");
@@ -1107,7 +1112,7 @@ static void test_list_subscribe (void) {
 
 	linphone_event_send_subscribe(lev,content);
 
-	BC_ASSERT_TRUE(wait_for_list(lcs,&marie->stat.number_of_LinphoneSubscriptionOutgoingInit,1,1000));
+	BC_ASSERT_TRUE(wait_for_list(lcs,&marie->stat.number_of_LinphoneSubscriptionOutgoingProgress,1,1000));
 	BC_ASSERT_TRUE(wait_for_list(lcs,&marie->stat.number_of_LinphoneSubscriptionActive,1,5000));
 
 	/*make sure marie receives first notification before terminating*/
@@ -1142,6 +1147,7 @@ static void test_list_subscribe (void) {
 	linphone_core_manager_destroy(laure);
 }
 
+#if HAVE_SIPP
 static void test_subscribe_on_wrong_dialog(void) {
 	char *scen;
 	FILE * sipp_out;
@@ -1162,6 +1168,132 @@ static void test_subscribe_on_wrong_dialog(void) {
 
 	linphone_core_manager_destroy(marie);
 }
+#endif
+
+static void test_list_subscribe_wrong_body(void) {
+	LinphoneCoreManager* marie = linphone_core_manager_new( "marie_rc");
+	
+	LinphoneEvent *lev;
+	LinphoneAddress *sub_addr = linphone_address_new("sip:rls@sip.example.com");
+	
+	lev=linphone_core_create_subscribe(marie->lc,sub_addr,"presence",60);
+	
+	linphone_event_add_custom_header(lev,"Supported","eventlist");
+	linphone_event_add_custom_header(lev,"Accept","application/pidf+xml, application/rlmi+xml");
+	linphone_event_add_custom_header(lev,"Content-Disposition", "recipient-list");
+	linphone_event_add_custom_header(lev,"Require", "recipient-list-subscribe");
+	linphone_event_add_custom_header(lev,"Content-type", "application/resource-lists+xml");
+	
+	linphone_event_send_subscribe(lev,NULL);
+	
+	BC_ASSERT_TRUE(wait_for_until(marie->lc,NULL,&marie->stat.number_of_LinphoneSubscriptionOutgoingProgress,1,1000));
+	BC_ASSERT_FALSE(wait_for_until(marie->lc,NULL,&marie->stat.number_of_LinphoneSubscriptionActive,1,2000));
+
+	linphone_event_terminate(lev);
+	linphone_core_manager_destroy(marie);
+	linphone_address_unref(sub_addr);
+}
+
+
+static void redis_publish_subscribe(void) {
+	LinphoneCoreManager* marie = linphone_core_manager_new("marie_rc");
+	LinphoneCoreManager* pauline = linphone_core_manager_new(transport_supported(LinphoneTransportTls) ? "pauline_rc" : "pauline_tcp_rc");
+	LinphoneCoreManager* marie2 = NULL;
+	LinphoneAddress *marie_identity = linphone_address_ref(marie->identity);
+	
+	linphone_core_set_network_reachable(marie->lc, FALSE);
+	linphone_core_manager_destroy(marie);
+	
+	linphone_core_invite_address(pauline->lc, marie_identity);
+	BC_ASSERT_TRUE(wait_for_until(pauline->lc, NULL, &pauline->stat.number_of_LinphoneCallOutgoingProgress, 1, 3000));
+	
+	marie2 = linphone_core_manager_new("marie2_rc");
+	BC_ASSERT_TRUE(wait_for_until(marie2->lc, NULL, &marie2->stat.number_of_LinphoneCallIncomingReceived, 1, 3000));
+	
+	linphone_address_unref(marie_identity);
+	linphone_core_manager_destroy(pauline);
+	linphone_core_manager_destroy(marie2);
+}
+
+
+static void tls_authentication_requested_good(LinphoneCore *lc, LinphoneAuthInfo *auth_info, LinphoneAuthMethod method) {
+	if (method == LinphoneAuthTls){
+	
+		char *cert = bc_tester_res("certificates/client/cert2.pem");
+		char *key = bc_tester_res("certificates/client/key2.pem");
+		
+		linphone_auth_info_set_tls_cert_path(auth_info, cert);
+		linphone_auth_info_set_tls_key_path(auth_info, key);
+		linphone_core_add_auth_info(lc, auth_info);
+		bc_free(cert);
+		bc_free(key);
+	}
+}
+
+static void tls_authentication_requested_bad(LinphoneCore *lc, LinphoneAuthInfo *auth_info, LinphoneAuthMethod method) {
+	if (method == LinphoneAuthTls){
+	
+		char *cert = bc_tester_res("certificates/client/cert2-signed-by-other-ca.pem");
+		char *key = bc_tester_res("certificates/client/key2.pem");
+		
+		linphone_auth_info_set_tls_cert_path(auth_info, cert);
+		linphone_auth_info_set_tls_key_path(auth_info, key);
+		linphone_core_add_auth_info(lc, auth_info);
+		bc_free(cert);
+		bc_free(key);
+	}
+}
+
+static void tls_client_auth_try_register(const char *identity, bool_t with_good_cert, bool_t must_work){
+	LinphoneCoreManager *lcm;
+	LinphoneCoreVTable* vtable = linphone_core_v_table_new();
+	LinphoneProxyConfig *cfg;
+
+	lcm = linphone_core_manager_new(NULL);
+
+	vtable->authentication_requested= with_good_cert ? tls_authentication_requested_good : tls_authentication_requested_bad;
+	linphone_core_add_listener(lcm->lc,vtable);
+	cfg = linphone_core_create_proxy_config(lcm->lc);
+	
+	linphone_proxy_config_set_server_addr(cfg, "sip:sip2.linphone.org:5063;transport=tls");
+	linphone_proxy_config_enable_register(cfg, TRUE);
+	linphone_proxy_config_set_identity(cfg, identity);
+	linphone_core_add_proxy_config(lcm->lc, cfg);
+	if (must_work){
+		BC_ASSERT_TRUE(wait_for(lcm->lc, NULL, &lcm->stat.number_of_LinphoneRegistrationOk, 1));
+		BC_ASSERT_EQUAL(lcm->stat.number_of_LinphoneRegistrationFailed,0, int, "%d");
+		BC_ASSERT_EQUAL(lcm->stat.number_of_auth_info_requested,1, int, "%d");
+	}else{
+		BC_ASSERT_TRUE(wait_for(lcm->lc, NULL, &lcm->stat.number_of_LinphoneRegistrationFailed, 1));
+		BC_ASSERT_EQUAL(lcm->stat.number_of_LinphoneRegistrationOk,0, int, "%d");
+		/*we should expect 2 "auth_requested": one for the TLS certificate, another one because the server rejects the REGISTER with 401.*/
+		/*If the certificate isn't recognized at all, the connection will not happen and no SIP response will be received from server.*/
+		if (with_good_cert) BC_ASSERT_EQUAL(lcm->stat.number_of_auth_info_requested,2, int, "%d");
+		else BC_ASSERT_EQUAL(lcm->stat.number_of_auth_info_requested,1, int, "%d");
+	}
+	
+	linphone_proxy_config_unref(cfg);
+	linphone_core_manager_destroy(lcm);
+	linphone_core_v_table_destroy(vtable);
+}
+
+void tls_client_auth_bad_certificate_cn(void) {
+	if (transport_supported(LinphoneTransportTls)) {
+		/*first register to the proxy with galadrielle's identity, and authenticate by supplying galadrielle's certificate.
+		* It must work.*/
+		tls_client_auth_try_register("sip:galadrielle@sip.example.org", TRUE, TRUE);
+		/*now do the same thing, but trying to register as "Arwen". It must fail.*/
+		tls_client_auth_try_register("sip:arwen@sip.example.org", TRUE, FALSE);
+	}
+}
+
+void tls_client_auth_bad_certificate(void) {
+	if (transport_supported(LinphoneTransportTls)) {
+		/*first register to the proxy with galadrielle's identity, and authenticate by supplying galadrielle's certificate.
+		* It must work.*/
+		tls_client_auth_try_register("sip:galadrielle@sip.example.org", FALSE, FALSE);
+	}
+}
 
 
 test_t flexisip_tests[] = {
@@ -1179,20 +1311,29 @@ test_t flexisip_tests[] = {
 	TEST_NO_TAG("Call forking not responded", call_forking_not_responded),
 	TEST_NO_TAG("Early-media call forking", early_media_call_forking),
 	TEST_NO_TAG("Call with sips", call_with_sips),
-	TEST_ONE_TAG("Call with sips not achievable", call_with_sips_not_achievable, "LeaksMemory"),
+	TEST_NO_TAG("Call with sips not achievable", call_with_sips_not_achievable),
 	TEST_NO_TAG("Call ipv6 to ipv6", call_with_ipv6),
 	TEST_NO_TAG("Call ipv6 to ipv4", call_ipv6_to_ipv4),
 	TEST_NO_TAG("Call ipv4 to ipv6", call_ipv4_to_ipv6),
+#if HAVE_SIPP
 	TEST_ONE_TAG("Subscribe Notify with sipp publisher", test_subscribe_notify_with_sipp_publisher, "LeaksMemory"),
 	/*TEST_ONE_TAG("Subscribe Notify with sipp double publish", test_subscribe_notify_with_sipp_publisher_double_publish, "LeaksMemory"),*/
+#endif
 	TEST_NO_TAG("Publish/unpublish", test_publish_unpublish),
-	TEST_ONE_TAG("List subscribe", test_list_subscribe,"LeaksMemory"),
+	TEST_NO_TAG("List subscribe", test_list_subscribe),
+	TEST_NO_TAG("List subscribe without body", test_list_subscribe_wrong_body),
 	TEST_NO_TAG("File transfer message rcs to external body client", file_transfer_message_rcs_to_external_body_client),
 	TEST_ONE_TAG("File transfer message external body to rcs client", file_transfer_message_external_body_to_rcs_client, "LeaksMemory"),
 	TEST_ONE_TAG("File transfer message external body to external body client", file_transfer_message_external_body_to_external_body_client, "LeaksMemory"),
 	TEST_NO_TAG("DoS module trigger by sending a lot of chat messages", dos_module_trigger),
-	TEST_NO_TAG("Subscribe on wrong dialog", test_subscribe_on_wrong_dialog)
+#if HAVE_SIPP
+	TEST_NO_TAG("Subscribe on wrong dialog", test_subscribe_on_wrong_dialog),
+#endif
+	TEST_ONE_TAG("Redis Publish/subscribe", redis_publish_subscribe, "Skip"),
+	TEST_NO_TAG("TLS authentication - client rejected due to CN mismatch", tls_client_auth_bad_certificate_cn),
+	TEST_NO_TAG("TLS authentication - client rejected due to unrecognized certificate chain", tls_client_auth_bad_certificate)
 };
+
 
 test_suite_t flexisip_test_suite = {"Flexisip", NULL, NULL, liblinphone_tester_before_each, liblinphone_tester_after_each,
 									sizeof(flexisip_tests) / sizeof(flexisip_tests[0]), flexisip_tests};

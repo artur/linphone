@@ -1,9 +1,28 @@
+/*
+audio-stream-stats.cc
+Copyright (C) 2016 Belledonne Communications, Grenoble, France 
+
+This library is free software; you can redistribute it and/or modify it
+under the terms of the GNU Lesser General Public License as published by
+the Free Software Foundation; either version 2.1 of the License, or (at
+your option) any later version.
+
+This library is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
+License for more details.
+
+You should have received a copy of the GNU Lesser General Public License
+along with this library; if not, write to the Free Software Foundation,
+Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+*/
+
 #include "audio-stream-stats.h"
 
 using namespace std;
 
 AudioStreamStatsCommand::AudioStreamStatsCommand() :
-		DaemonCommand("audio-stream-stats", "audio-stream-stats <stream id>", "Return stats of a given audio stream.") {
+		DaemonCommand("audio-stream-stats", "audio-stream-stats <stream_id>", "Return stats of a given audio stream.") {
 	addExample(new DaemonCommandExample("audio-stream-stats 1",
 						"Status: Ok\n\n"
 						"Audio-ICE state: Not activated\n"
@@ -26,21 +45,21 @@ AudioStreamStatsCommand::AudioStreamStatsCommand() :
 						"Reason: No audio stream with such id."));
 }
 
-void AudioStreamStatsCommand::exec(Daemon *app, const char *args) {
+void AudioStreamStatsCommand::exec(Daemon *app, const string& args) {
 	int sid;
 	AudioStreamAndOther *stream = NULL;
-	if (sscanf(args, "%i", &sid) == 1) {
-		stream = app->findAudioStreamAndOther(sid);
-		if (!stream) {
-			app->sendResponse(Response("No audio stream with such id."));
-			return;
-		}
-	} else {
+	istringstream ist(args);
+	ist >> sid;
+	if (ist.fail()) {
 		app->sendResponse(Response("No stream specified."));
 		return;
 	}
 
-	ostringstream ostr;
-	ostr << AudioStreamStatsResponse(app, stream->stream, &stream->stats, false).getBody();
-	app->sendResponse(Response(ostr.str().c_str(), Response::Ok));
+	stream = app->findAudioStreamAndOther(sid);
+	if (!stream) {
+		app->sendResponse(Response("No audio stream with such id."));
+		return;
+	}
+
+	app->sendResponse(Response(AudioStreamStatsResponse(app, stream->stream, &stream->stats, false).getBody(), Response::Ok));
 }

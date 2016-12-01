@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 package org.linphone.core;
@@ -22,33 +22,33 @@ package org.linphone.core;
 public interface PresenceNote {
 
 	/**
-	 * @brief Gets the content of a presence note.
+	 * Gets the content of a presence note.
 	 * @return A String with the content of the presence note.
 	 */
 	String getContent();
 
 	/**
-	 * @brief Sets the content of a presence note.
-	 * @param[in] content The content of the note.
-	 * @return 0 if successful, a value < 0 in case of error.
+	 * Sets the content of a presence note.
+	 * @param content The content of the note.
+	 * @return 0 if successful, a value &lt; 0 in case of error.
 	 */
 	int setContent(String content);
 
 	/**
-	 * @brief Gets the language of a presence note.
+	 * Gets the language of a presence note.
 	 * @return A String containing the language of the presence note, or null if no language is specified.
 	 */
 	String getLang();
 
 	/**
-	 * @brief Sets the language of a presence note.
-	 * @param[in] lang The language of the note.
-	 * @return 0 if successful, a value < 0 in case of error.
+	 * Sets the language of a presence note.
+	 * @param lang The language of the note.
+	 * @return 0 if successful, a value &lt; 0 in case of error.
 	 */
 	int setLang(String lang);
 
 	/**
-	 * @brief Gets the native pointer for this object.
+	 * Gets the native pointer for this object.
 	 */
 	long getNativePtr();
 

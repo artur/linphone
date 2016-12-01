@@ -28,16 +28,20 @@ CERTIFICATE_CN_FILES = certificates/cn/agent.pem      \
 					 certificates/cn/cafile.pem     \
 					 certificates/cn/openssl-cn.cnf
 
-CERTIFICATE_FILES = $(CERTIFICATE_ALT_FILES) $(CERTIFICATE_CN_FILES)
+CERTIFICATE_CLIENT_FILES = certificates/client/cert.pem \
+					certificates/client/key.pem
+
+CERTIFICATE_FILES = $(CERTIFICATE_ALT_FILES) $(CERTIFICATE_CN_FILES) $(CERTIFICATE_CLIENT_FILES)
 
 RCFILES = \
 					rcfiles/empty_rc\
 					rcfiles/laure_call_logs_rc\
-					rcfiles/laure_rc\
+					rcfiles/laure_rc_udp\
 					rcfiles/marie_early_rc\
 					rcfiles/marie_h264_rc\
 					rcfiles/marie_quality_reporting_rc\
 					rcfiles/marie_rc\
+					rcfiles/marie2_rc\
 					rcfiles/marie_rc_rtcp_xr\
 					rcfiles/marie_remote_404_rc\
 					rcfiles/marie_remote_default_values_rc\
@@ -54,7 +58,7 @@ RCFILES = \
 					rcfiles/marie_zrtp_aes256_rc\
 					rcfiles/marie_zrtp_b256_rc\
 					rcfiles/marie_zrtp_srtpsuite_aes256_rc\
-					rcfiles/michelle_rc\
+					rcfiles/michelle_rc_udp\
 					rcfiles/multi_account_rc\
 					rcfiles/pauline_alt_rc\
 					rcfiles/pauline_h264_rc\
@@ -62,6 +66,7 @@ RCFILES = \
 					rcfiles/pauline_rc_rtcp_xr\
 					rcfiles/pauline_sips_rc\
 					rcfiles/pauline_tcp_rc\
+					rcfiles/pauline_tls_client_rc\
 					rcfiles/pauline_wild_rc\
 					rcfiles/pauline_zrtp_aes256_rc\
 					rcfiles/pauline_zrtp_b256_rc\
@@ -96,6 +101,8 @@ certificatesaltdir=$(datadir)/liblinphone_tester/certificates/altname
 certificatesalt_DATA = $(CERTIFICATE_ALT_FILES)
 certificatescndir=$(datadir)/liblinphone_tester/certificates/cn
 certificatescn_DATA = $(CERTIFICATE_CN_FILES)
+certificatesclientdir=$(datadir)/liblinphone_tester/certificates/client
+certificatesclient_DATA = $(CERTIFICATE_CLIENT_FILES)
 rcfilesdir = $(datadir)/liblinphone_tester/rcfiles
 rcfiles_DATA = $(RCFILES)
 imagesdir = $(datadir)/liblinphone_tester/images
@@ -116,30 +123,31 @@ liblinphonetester_la_HEADERS = audio_bypass_wav_header.h
 liblinphonetester_la_SOURCES = \
 				accountmanager.c \
 				audio_bypass_tester.c \
-				call_tester.c \
-				complex_sip_call_tester.c \
+				call_multi_tester.c \
+				call_multicast_tester.c \
+				call_single_tester.c \
+				call_video_tester.c \
+				complex_sip_case_tester.c \
 				dtmf_tester.c \
 				eventapi_tester.c \
 				flexisip_tester.c \
 				log_collection_tester.c \
 				message_tester.c \
-				multi_call_tester.c \
-				multicast_call_tester.c \
 				offeranswer_tester.c \
 				player_tester.c \
-				presence_tester.c \
 				presence_server_tester.c \
+				presence_tester.c \
 				proxy_config_tester.c \
 				quality_reporting_tester.c \
 				register_tester.c \
 				remote_provisioning_tester.c \
 				setup_tester.c \
 				stun_tester.c \
-				tunnel_tester.c \
 				tester.c \
+				tunnel_tester.c \
 				upnp_tester.c \
-				video_tester.c \
-				vcard_tester.c
+				vcard_tester.c \
+				video_tester.c
 
 liblinphonetester_ladir = $(includedir)/linphone
 
@@ -154,7 +162,7 @@ dist_liblinphone_tester_DATA =  tester_hosts messages.db
 
 AM_CPPFLAGS = -I$(top_srcdir)/include -I$(top_srcdir)/coreapi
 AM_CFLAGS    = -DBC_CONFIG_FILE=\"config.h\" $(STRICT_OPTIONS) $(STRICT_OPTIONS_CC) \
-		-DIN_LINPHONE $(ORTP_CFLAGS) $(MEDIASTREAMER_CFLAGS) $(BCTOOLBOXTESTER_CFLAGS) \
+		$(ORTP_CFLAGS) $(MEDIASTREAMER_CFLAGS) $(BCTOOLBOXTESTER_CFLAGS) \
 		$(BELLESIP_CFLAGS) $(LIBXML2_CFLAGS) $(SQLITE3_CFLAGS) $(BELCARD_CFLAGS)
 
 if BUILD_GTK_UI
@@ -164,7 +172,7 @@ AM_CFLAGS += $(LIBGTK_CFLAGS) $(LIBGTKMAC_CFLAGS) -DHAVE_GTK
 
 endif
 
-AM_LDFLAGS=-Wl,-rpath -Wl,$(libdir)
+#AM_LDFLAGS=-Wl,-rpath -Wl,$(libdir)
 
 bin_PROGRAMS=
 

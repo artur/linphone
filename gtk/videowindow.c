@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 #include "linphone.h"
@@ -121,7 +121,7 @@ static void _resize_video_window(GtkWidget *video_window, MSVideoSize vsize){
 	}
 }
 
-static gint resize_video_window(LinphoneCall *call){
+static gboolean resize_video_window(LinphoneCall *call){
 	const LinphoneCallParams *params=linphone_call_get_current_params(call);
 	if (params){
 		MSVideoSize vsize=linphone_call_params_get_received_video_size(params);
@@ -196,14 +196,17 @@ static void on_controls_response(GtkWidget *dialog, int response_id, GtkWidget *
 
 }
 
-static void on_controls_destroy(GtkWidget *w){
+static gboolean on_controls_destroy(GtkWidget *w){
 	GtkWidget *video_window=(GtkWidget*)g_object_get_data(G_OBJECT(w),"video_window");
 	gint timeout=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(w),"timeout"));
 	if (timeout!=0){
 		g_source_remove(timeout);
 		g_object_set_data(G_OBJECT(w),"timeout",GINT_TO_POINTER(0));
 	}
-	g_object_set_data(G_OBJECT(video_window),"controls",NULL);
+	if (video_window) {
+		g_object_set_data(G_OBJECT(video_window),"controls",NULL);
+	}
+	return FALSE;
 }
 
 static gboolean _set_video_controls_position(GtkWidget *video_window){
@@ -228,8 +231,21 @@ static void set_video_controls_position(GtkWidget *video_window){
 }
 
 static gboolean video_window_moved(GtkWidget *widget, GdkEvent  *event, gpointer   user_data){
-	set_video_controls_position(widget);
+	/*Workaround to Video window bug on Windows. */
+	/* set_video_controls_position(widget); */
 	return FALSE;
+}
+
+static gint do_gtk_widget_destroy(GtkWidget *w){
+	gtk_widget_destroy(w);
+	return FALSE;
+}
+
+static void schedule_video_controls_disapearance(GtkWidget *w){
+	gint timeout=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(w),"timeout"));
+	if (timeout != 0) g_source_remove(timeout);
+	timeout=g_timeout_add(3000,(GSourceFunc)do_gtk_widget_destroy,w);
+	g_object_set_data(G_OBJECT(w),"timeout",GINT_TO_POINTER(timeout));
 }
 
 static GtkWidget *show_video_controls(GtkWidget *video_window){
@@ -240,7 +256,6 @@ static GtkWidget *show_video_controls(GtkWidget *video_window){
 		const char *stock_button=isfullscreen ? GTK_STOCK_LEAVE_FULLSCREEN : GTK_STOCK_FULLSCREEN;
 		gint response_id=isfullscreen ? GTK_RESPONSE_NO : GTK_RESPONSE_YES ;
 		GtkWidget *image = gtk_image_new_from_icon_name(linphone_gtk_get_ui_config("stop_call_icon_name","linphone-stop-call"), GTK_ICON_SIZE_BUTTON);
-		gint timeout;
 		GtkWidget *button;
 		w=gtk_dialog_new_with_buttons("",GTK_WINDOW(video_window),GTK_DIALOG_DESTROY_WITH_PARENT,stock_button,response_id,NULL);
 		gtk_window_set_opacity(GTK_WINDOW(w),0.5);
@@ -255,18 +270,14 @@ static GtkWidget *show_video_controls(GtkWidget *video_window){
 		gtk_widget_show(button);
 		gtk_dialog_add_action_widget(GTK_DIALOG(w),button,GTK_RESPONSE_APPLY);
 		g_signal_connect(w,"response",(GCallback)on_controls_response,video_window);
-		timeout=g_timeout_add(3000,(GSourceFunc)gtk_widget_destroy,w);
-		g_object_set_data(G_OBJECT(w),"timeout",GINT_TO_POINTER(timeout));
+		schedule_video_controls_disapearance(w);
 		g_signal_connect(w,"destroy",(GCallback)on_controls_destroy,NULL);
 		g_object_set_data(G_OBJECT(w),"video_window",video_window);
 		g_object_set_data(G_OBJECT(video_window),"controls",w);
 		set_video_controls_position(video_window);
 		gtk_widget_show(w);
 	}else{
-		gint timeout=GPOINTER_TO_INT(g_object_get_data(G_OBJECT(w),"timeout"));
-		g_source_remove(timeout);
-		timeout=g_timeout_add(3000,(GSourceFunc)gtk_widget_destroy,w);
-		g_object_set_data(G_OBJECT(w),"timeout",GINT_TO_POINTER(timeout));
+		schedule_video_controls_disapearance(w);
 	}
 	return w;
 }

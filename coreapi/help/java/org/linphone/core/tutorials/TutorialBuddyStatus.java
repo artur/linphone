@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 package org.linphone.core.tutorials;
 
@@ -33,6 +33,7 @@ import org.linphone.core.LinphoneCore.GlobalState;
 import org.linphone.core.LinphoneCore.LogCollectionUploadState;
 import org.linphone.core.LinphoneCore.RegistrationState;
 import org.linphone.core.LinphoneCore.RemoteProvisioningState;
+import org.linphone.core.LinphoneAuthInfo;
 import org.linphone.core.LinphoneCoreException;
 import org.linphone.core.LinphoneCoreFactory;
 import org.linphone.core.LinphoneCoreListener;
@@ -298,9 +299,15 @@ public class TutorialBuddyStatus implements LinphoneCoreListener {
 
 	@Override
 	public void authInfoRequested(LinphoneCore lc, String realm,
-			String username, String Domain) {
+			String username, String domain) {
 		// TODO Auto-generated method stub
 		
+	}
+	
+	@Override
+	public void authenticationRequested(LinphoneCore lc, 
+			LinphoneAuthInfo authInfo, LinphoneCore.AuthMethod method) {
+		// TODO Auto-generated method stub
 	}
 
 	@Override

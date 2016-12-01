@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 package org.linphone.core;
 
@@ -99,7 +99,8 @@ class LinphoneProxyConfigImpl implements LinphoneProxyConfig {
 
 	private native int lookupCCCFromIso(long nativePtr, String iso);
 	private native int lookupCCCFromE164(long nativePtr, String e164);
-
+		
+	
 	public LinphoneProxyConfig enableRegister(boolean value) {
 		isValid();
 		enableRegister(nativePtr,value);
@@ -402,4 +403,22 @@ class LinphoneProxyConfigImpl implements LinphoneProxyConfig {
 	public Object getUserData() {
 		return userData;
 	}
+	
+	
+	private native void setCustomHeader(long ptr, String name, String value);
+	@Override
+	public void setCustomHeader(String name, String value){
+		setCustomHeader(nativePtr, name, value);
+	}
+	
+	
+	private native String getCustomHeader(long ptr, String name);
+	@Override
+	public String getCustomHeader(String name){
+		return getCustomHeader(nativePtr, name);
+	}
+	
+	
+	
+	
 }

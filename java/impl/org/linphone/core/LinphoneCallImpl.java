@@ -14,7 +14,7 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 package org.linphone.core;
 
@@ -45,6 +45,7 @@ class LinphoneCallImpl implements LinphoneCall {
 	private native float getAverageQuality(long nativePtr);
 	private native boolean mediaInProgress(long nativePtr);
 	private native void setListener(long ptr, LinphoneCallListener listener);
+	native private long getDiversionAddress(long nativePtr);
 	
 	/*
 	 * This method must always be called from JNI, nothing else.
@@ -269,4 +270,14 @@ class LinphoneCallImpl implements LinphoneCall {
 	public void setListener(LinphoneCallListener listener) {
 		setListener(nativePtr, listener);
 	}
+    
+	public LinphoneAddress getDiversionAddress() {
+        long lNativePtr = getDiversionAddress(nativePtr);
+        if (lNativePtr!=0) {
+            return new LinphoneAddressImpl(lNativePtr,LinphoneAddressImpl.WrapMode.FromConst);
+        } else {
+            return null;
+        }
+    }
+
 }
